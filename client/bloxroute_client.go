@@ -33,6 +33,7 @@ type BloXrouteClient struct {
 	bdnBlocksChannels  map[string]chan<- *types.Block              // output channels for `bdnBlocks`
 	txReceiptsChannels map[string]chan<- *types.TxReceipt          // output channels for `txReceipts`
 	ethOnBlockChannels map[string]chan<- *types.EthOnBlockResponse // output channels for `ethOnBlock`
+	rawChannels        map[string]chan<- string                    // output channels for SubscribeRaw()
 }
 
 // Create a bloXroute websocket client connected to bloXroute cloud.
@@ -78,6 +79,7 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 		bdnBlocksChannels:      make(map[string]chan<- *types.Block),
 		txReceiptsChannels:     make(map[string]chan<- *types.TxReceipt),
 		ethOnBlockChannels:     make(map[string]chan<- *types.EthOnBlockResponse),
+		rawChannels:            make(map[string]chan<- string),
 	}
 
 	client.ping()
@@ -110,6 +112,7 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		bdnBlocksChannels:      make(map[string]chan<- *types.Block),
 		txReceiptsChannels:     make(map[string]chan<- *types.TxReceipt),
 		ethOnBlockChannels:     make(map[string]chan<- *types.EthOnBlockResponse),
+		rawChannels:            make(map[string]chan<- string),
 	}
 
 	client.ping()
@@ -205,9 +208,22 @@ func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map
 	}
 
 	c.ethOnBlockChannels[subscriptionID] = outCh
-	c.idToStreamNameMap[subscriptionID] = "ethOnBlock"
 
 	return nil
+}
+
+// SubscribeRaw() send a raw subscription request to the server.
+// This is a low-level API and should be used only if you know what you are doing.
+// The first element of params must be the name of the stream.
+func (c *BloXrouteClient) SubscribeRaw(streamName string, subRequest string, outCh chan<- string) (string, error) {
+	subscriptionID, err := c.sendCommand(subRequest)
+	if err != nil {
+		return "", err
+	}
+
+	c.idToStreamNameMap[subscriptionID] = streamName
+	c.rawChannels[subscriptionID] = outCh
+	return subscriptionID, nil
 }
 
 func (c *BloXrouteClient) Unsubscribe(subscriptionID string) error {
@@ -228,6 +244,11 @@ func (c *BloXrouteClient) Unsubscribe(subscriptionID string) error {
 
 	delete(c.idToStreamNameMap, subscriptionID)
 	delete(c.idToCommandMap, subscriptionID)
+
+	if c.rawChannels[subscriptionID] != nil {
+		delete(c.rawChannels, subscriptionID)
+		return nil
+	}
 
 	switch streamName {
 	case "newTxs":
@@ -502,6 +523,11 @@ func (c *BloXrouteClient) run() error {
 			}
 			if streamName == "" {
 				log.Panicf("Bug: no stream name for subscription ID %s", subscriptionID)
+			}
+
+			if c.rawChannels[subscriptionID] != nil {
+				c.rawChannels[subscriptionID] <- string(nextNotification)
+				break
 			}
 
 			err = nil

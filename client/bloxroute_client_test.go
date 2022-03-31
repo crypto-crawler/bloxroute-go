@@ -97,6 +97,28 @@ func TestBlockNumberFromEthOnBlock(t *testing.T) {
 	close(stopCh)
 }
 
+func TestSubscribeRaw(t *testing.T) {
+	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
+	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
+	if certFile == "" || keyFile == "" {
+		assert.FailNow(t, "Please provide the bloXroute cert and key files path in the environment variable variable")
+	}
+
+	stopCh := make(chan struct{})
+	client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
+	assert.NoError(t, err)
+
+	outCh := make(chan string)
+	subscriptionID, err := client.SubscribeRaw("bdnBlocks", `{"method": "subscribe", "params": ["bdnBlocks",{"include":["hash"]}]}`, outCh)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, subscriptionID)
+
+	msg := <-outCh
+	assert.NotEmpty(t, msg)
+
+	close(stopCh)
+}
+
 func TestUnsubscribeShouldFail(t *testing.T) {
 	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
 	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
@@ -110,6 +132,28 @@ func TestUnsubscribeShouldFail(t *testing.T) {
 
 	err = client.Unsubscribe("an-id-that-does-not-exist")
 	assert.Error(t, err)
+
+	close(stopCh)
+}
+
+func TestUnsubscribeShouldSucceed(t *testing.T) {
+	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
+	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
+	if certFile == "" || keyFile == "" {
+		assert.FailNow(t, "Please provide the bloXroute cert and key files path in the environment variable variable")
+	}
+
+	stopCh := make(chan struct{})
+	client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
+	assert.NoError(t, err)
+
+	outCh := make(chan string)
+	subscriptionID, err := client.SubscribeRaw("bdnBlocks", `{"method": "subscribe", "params": ["bdnBlocks",{"include":["hash"]}]}`, outCh)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, subscriptionID)
+
+	err = client.Unsubscribe(subscriptionID)
+	assert.NoError(t, err)
 
 	close(stopCh)
 }
