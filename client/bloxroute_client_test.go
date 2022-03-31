@@ -109,7 +109,7 @@ func TestSubscribeRaw(t *testing.T) {
 	assert.NoError(t, err)
 
 	outCh := make(chan string)
-	subscriptionID, err := client.SubscribeRaw("bdnBlocks", `{"method": "subscribe", "params": ["bdnBlocks",{"include":["hash"]}]}`, outCh)
+	subscriptionID, err := client.SubscribeRaw(`{"method":"subscribe","params":["transactionStatus",{"include":["tx_hash","status"]}]}`, outCh)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, subscriptionID)
 
@@ -148,7 +148,7 @@ func TestUnsubscribeShouldSucceed(t *testing.T) {
 	assert.NoError(t, err)
 
 	outCh := make(chan string)
-	subscriptionID, err := client.SubscribeRaw("bdnBlocks", `{"method": "subscribe", "params": ["bdnBlocks",{"include":["hash"]}]}`, outCh)
+	subscriptionID, err := client.SubscribeRaw(`{"method": "subscribe", "params": ["bdnBlocks",{"include":["hash"]}]}`, outCh)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, subscriptionID)
 

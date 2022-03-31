@@ -215,7 +215,24 @@ func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map
 // SubscribeRaw() send a raw subscription request to the server.
 // This is a low-level API and should be used only if you know what you are doing.
 // The first element of params must be the name of the stream.
-func (c *BloXrouteClient) SubscribeRaw(streamName string, subRequest string, outCh chan<- string) (string, error) {
+func (c *BloXrouteClient) SubscribeRaw(subRequest string, outCh chan<- string) (string, error) {
+	streamName := ""
+	{
+		jsonObj := make(map[string]interface{})
+		err := json.Unmarshal([]byte(subRequest), &jsonObj)
+		if err != nil {
+			return "", err
+		}
+		params, ok := jsonObj["params"].([]interface{})
+		if !ok {
+			return "", fmt.Errorf("params must be an array")
+		}
+		streamName, ok = params[0].(string)
+		if !ok {
+			return "", fmt.Errorf("The first element of params must be the name of the stream.")
+		}
+	}
+
 	subscriptionID, err := c.sendCommand(subRequest)
 	if err != nil {
 		return "", err
