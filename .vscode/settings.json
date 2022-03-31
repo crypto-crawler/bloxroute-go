@@ -1,0 +1,6 @@
+{
+    "go.testEnvVars": {
+        "BLOXROUTE_CERT_FILE": "/path/to/external_gateway_cert.pem",
+        "BLOXROUTE_KEY_FILE": "/path/to/external_gateway_key.pem",
+    }
+}
