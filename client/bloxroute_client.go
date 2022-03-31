@@ -154,7 +154,16 @@ func (c *BloXrouteClient) SubscribeTxReceipts(include []string, outCh chan<- *ty
 			"transaction_index",
 		}
 	}
-	subscriptionID, err := c.subscribe("txReceipts", include, "")
+
+	params := make([]interface{}, 0)
+	params = append(params, "txReceipts")
+	if len(include) > 0 {
+		m := make(map[string][]string)
+		m["include"] = include
+		params = append(params, m)
+	}
+
+	subscriptionID, err := c.subscribe(params)
 	if err != nil {
 		return err
 	}
@@ -177,24 +186,20 @@ func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map
 		include = []string{"name", "response", "block_height", "tag"}
 	}
 
-	subRequest := func() string {
-		params := make([]interface{}, 0)
-		params = append(params, "ethOnBlock")
-		{
-			m := make(map[string]interface{})
-			if len(include) > 0 {
-				m["include"] = include
-			}
-			if len(callParams) > 0 {
-				m["call-params"] = callParams
-			}
-			params = append(params, m)
+	params := make([]interface{}, 0)
+	params = append(params, "ethOnBlock")
+	{
+		m := make(map[string]interface{})
+		if len(include) > 0 {
+			m["include"] = include
 		}
-		bytes, _ := json.Marshal(params)
-		return fmt.Sprintf(`{"method": "subscribe", "params": %s}`, string(bytes))
-	}()
+		if len(callParams) > 0 {
+			m["call-params"] = callParams
+		}
+		params = append(params, m)
+	}
 
-	subscriptionID, err := c.sendCommand(subRequest)
+	subscriptionID, err := c.subscribe(params)
 	if err != nil {
 		return err
 	}
@@ -250,7 +255,23 @@ func (c *BloXrouteClient) subscribeTransactions(streamName string, include []str
 		// empty means all
 		include = []string{"tx_hash", "tx_contents"}
 	}
-	subscriptionID, err := c.subscribe(streamName, include, filters)
+
+	params := make([]interface{}, 0)
+	{
+		params = append(params, streamName)
+		if len(include) > 0 {
+			m := make(map[string][]string)
+			m["include"] = include
+			params = append(params, m)
+		}
+		if len(filters) > 0 {
+			m := make(map[string]string)
+			m["filters"] = filters
+			params = append(params, m)
+		}
+	}
+
+	subscriptionID, err := c.subscribe(params)
 	if err != nil {
 		return err
 	}
@@ -271,7 +292,16 @@ func (c *BloXrouteClient) subscribeBlocks(streamName string, include []string, o
 		// empty means all
 		include = []string{"hash", "header", "transactions", "uncles"}
 	}
-	subscriptionID, err := c.subscribe(streamName, include, "")
+
+	params := make([]interface{}, 0)
+	params = append(params, streamName)
+	if len(include) > 0 {
+		m := make(map[string][]string)
+		m["include"] = include
+		params = append(params, m)
+	}
+
+	subscriptionID, err := c.subscribe(params)
 	if err != nil {
 		return err
 	}
@@ -286,22 +316,10 @@ func (c *BloXrouteClient) subscribeBlocks(streamName string, include []string, o
 	return nil
 }
 
-// Send a subscription request and return the subscription ID.
-func (c *BloXrouteClient) subscribe(streamName string, include []string, filters string) (string, error) {
-	params := make([]interface{}, 0)
-	{
-		params = append(params, streamName)
-		if len(include) > 0 {
-			m := make(map[string][]string)
-			m["include"] = include
-			params = append(params, m)
-		}
-		if len(filters) > 0 {
-			m := make(map[string]string)
-			m["filters"] = filters
-			params = append(params, m)
-		}
-	}
+// subscribe() sends a subscription request and returns the subscription ID.
+func (c *BloXrouteClient) subscribe(params []interface{}) (string, error) {
+	// The first element is the stream name
+	streamName := params[0].(string)
 	bytes, _ := json.Marshal(params)
 	subRequest := fmt.Sprintf(`{"method": "subscribe", "params": %s}`, string(bytes))
 	subscriptionID, err := c.sendCommand(subRequest)
@@ -407,23 +425,6 @@ func processMsg[T any](data []byte, outCh chan<- T) error {
 
 	outCh <- msg.Params.Result
 	return nil
-}
-
-// Populate params for ethOnblock.
-func populateParams(include []string, callParams []map[string]string) []interface{} {
-	params := make([]interface{}, 0)
-	params = append(params, "ethOnBlock")
-	{
-		m := make(map[string]interface{})
-		if len(include) > 0 {
-			m["include"] = include
-		}
-		if len(callParams) > 0 {
-			m["call-params"] = callParams
-		}
-		params = append(params, m)
-	}
-	return params
 }
 
 // Run the event looop.
