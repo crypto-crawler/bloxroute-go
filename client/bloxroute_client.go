@@ -439,7 +439,6 @@ func (c *BloXrouteClient) run() error {
 				log.Println(err)
 				break
 			}
-			fmt.Println(string(nextNotification))
 
 			{
 				// Is it a subscription response?
