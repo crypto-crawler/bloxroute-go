@@ -31,9 +31,11 @@ type WalletBalance struct {
 	BlockNumber        int64          `json:"block_number"`
 }
 
-var BNB = common.HexToAddress("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")
-var USDT = common.HexToAddress("0x55d398326f99059fF775485246999027B3197955")
-var BUSD = common.HexToAddress("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
+var (
+	BNB  = common.HexToAddress("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")
+	USDT = common.HexToAddress("0x55d398326f99059fF775485246999027B3197955")
+	BUSD = common.HexToAddress("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
+)
 
 func (p *PairReserves) Hash() uint64 {
 	h := md5.New()
@@ -93,7 +95,7 @@ func SubscribeWalletBalance(bloXrouteClient *client.BloXrouteClient, addresses [
 		callParams = append(callParams, map[string]string{"name": name, "method": "eth_call", "to": BUSD.Hex(), "data": buildBalanceInputData(address)})
 	}
 
-	//holder := make(map[common.Address]*WalletBalance)
+	// holder := make(map[common.Address]*WalletBalance)
 	go func() {
 		for resp := range outChTmp {
 			var address common.Address
@@ -115,7 +117,7 @@ func SubscribeWalletBalance(bloXrouteClient *client.BloXrouteClient, addresses [
 			}
 			balance.BlockNumber = blockNumber.Int64()
 			balance.BlockTimestampLast = time.Now().Unix()
-			//holder[address] = balance
+			// holder[address] = balance
 			outCh <- balance
 
 		}
@@ -124,6 +126,7 @@ func SubscribeWalletBalance(bloXrouteClient *client.BloXrouteClient, addresses [
 }
 
 func buildBalanceInputData(address common.Address) string {
+	// balanceOf(address), see // see https://www.4byte.directory/signatures/?bytes4_signature=0x70a08231
 	funcSelector := []byte{0x70, 0xa0, 0x82, 0x31}
 	addressBytes := common.LeftPadBytes(address.Bytes(), 32)
 	var dataOut []byte
