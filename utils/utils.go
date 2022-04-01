@@ -25,6 +25,7 @@ type PairReserves struct {
 type WalletBalance struct {
 	Address            common.Address `json:"address"`
 	Bnb                *big.Int       `json:"bnb"`
+	Wbnb               *big.Int       `json:"wbnb"`
 	Usdt               *big.Int       `json:"usdt"`
 	Busd               *big.Int       `json:"busd"`
 	BlockTimestampLast int64          `json:"block_timestamp_last"`
@@ -32,7 +33,7 @@ type WalletBalance struct {
 }
 
 var (
-	BNB  = common.HexToAddress("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")
+	WBNB = common.HexToAddress("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")
 	USDT = common.HexToAddress("0x55d398326f99059fF775485246999027B3197955")
 	BUSD = common.HexToAddress("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
 )
@@ -82,13 +83,15 @@ func SubscribePairReserves(bloXrouteClient *client.BloXrouteClient, pairs []comm
 	return bloXrouteClient.SubscribeEthOnBlock(nil, callParams, outChTmp)
 }
 
-// Monitor the balances of given addresses on Binance Chain. The balances are returned in BNB, USDT, BUSD.
+// Monitor the balances of given addresses on Binance Chain. The balances are returned in BNB, WBNB, USDT, BUSD.
 func SubscribeWalletBalance(bloXrouteClient *client.BloXrouteClient, addresses []common.Address, outCh chan<- *WalletBalance) error {
 	outChTmp := make(chan *types.EthOnBlockResponse)
 	callParams := make([]map[string]string, 0)
 	for _, address := range addresses {
 		name := fmt.Sprintf("bnb_%s", address.Hex())
 		callParams = append(callParams, map[string]string{"name": name, "method": "eth_getBalance", "address": address.Hex(), "data": "0x0"})
+		name = fmt.Sprintf("wbnb_%s", address.Hex())
+		callParams = append(callParams, map[string]string{"name": name, "method": "eth_call", "to": WBNB.Hex(), "data": buildBalanceInputData(address)})
 		name = fmt.Sprintf("usdt_%s", address.Hex())
 		callParams = append(callParams, map[string]string{"name": name, "method": "eth_call", "to": USDT.Hex(), "data": buildBalanceInputData(address)})
 		name = fmt.Sprintf("busd_%s", address.Hex())
@@ -103,6 +106,9 @@ func SubscribeWalletBalance(bloXrouteClient *client.BloXrouteClient, addresses [
 			if strings.HasPrefix(resp.Name, "bnb_") {
 				address = common.HexToAddress(resp.Name[len("bnb_"):])
 				balance.Bnb, _ = big.NewInt(0).SetString(resp.Response, 0)
+			} else if strings.HasPrefix(resp.Name, "wbnb_") {
+				address = common.HexToAddress(resp.Name[len("wbnb_"):])
+				balance.Wbnb, _ = big.NewInt(0).SetString(resp.Response, 0)
 			} else if strings.HasPrefix(resp.Name, "usdt_") {
 				address = common.HexToAddress(resp.Name[len("usdt_"):])
 				balance.Usdt, _ = big.NewInt(0).SetString(resp.Response, 0)
