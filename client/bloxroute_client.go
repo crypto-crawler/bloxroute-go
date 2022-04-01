@@ -552,38 +552,44 @@ func (c *BloXrouteClient) run() error {
 				outCh := c.newTxsChannels[subscriptionID]
 				if outCh == nil {
 					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
+				} else {
+					err = processMsg(nextNotification, outCh)
 				}
-				err = processMsg(nextNotification, outCh)
 			case "pendingTxs":
 				outCh := c.pendingTxsChannels[subscriptionID]
 				if outCh == nil {
 					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
+				} else {
+					err = processMsg(nextNotification, outCh)
 				}
-				err = processMsg(nextNotification, outCh)
 			case "newBlocks":
 				outCh := c.newBlocksChannels[subscriptionID]
 				if outCh == nil {
 					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
+				} else {
+					err = processMsg(nextNotification, outCh)
 				}
-				err = processMsg(nextNotification, outCh)
 			case "bdnBlocks":
 				outCh := c.bdnBlocksChannels[subscriptionID]
 				if outCh == nil {
 					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
+				} else {
+					err = processMsg(nextNotification, outCh)
 				}
-				err = processMsg(nextNotification, outCh)
 			case "txReceipts":
 				outCh := c.txReceiptsChannels[subscriptionID]
 				if outCh == nil {
 					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
+				} else {
+					err = processMsg(nextNotification, outCh)
 				}
-				err = processMsg(nextNotification, outCh)
 			case "ethOnBlock":
 				outCh := c.ethOnBlockChannels[subscriptionID]
 				if outCh == nil {
 					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
+				} else {
+					err = processMsg(nextNotification, outCh)
 				}
-				err = processMsg(nextNotification, outCh)
 			default:
 				log.Panicf("Unknown stream name: %s", streamName)
 			}
