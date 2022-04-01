@@ -51,8 +51,7 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 	}
 	dialer := websocket.DefaultDialer
 	dialer.TLSClientConfig = tlsConfig
-	// use wss://eth.feed.blxrbdn.com:28333 for ETH
-	// use wss://bsc.feed.blxrbdn.com:28333 for BSC
+	// see https://docs.bloxroute.com/introduction/cloud-api-ips
 	url := ""
 	if network == "Mainnet" {
 		url = "wss://virginia.eth.blxrbdn.com/ws"
@@ -552,37 +551,37 @@ func (c *BloXrouteClient) run() error {
 			case "newTxs":
 				outCh := c.newTxsChannels[subscriptionID]
 				if outCh == nil {
-					log.Panicf("Bug: no output channel for subscription ID %s", subscriptionID)
+					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
 				}
 				err = processMsg(nextNotification, outCh)
 			case "pendingTxs":
 				outCh := c.pendingTxsChannels[subscriptionID]
 				if outCh == nil {
-					log.Panicf("Bug: no output channel for subscription ID %s", subscriptionID)
+					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
 				}
 				err = processMsg(nextNotification, outCh)
 			case "newBlocks":
 				outCh := c.newBlocksChannels[subscriptionID]
 				if outCh == nil {
-					log.Panicf("Bug: no output channel for subscription ID %s", subscriptionID)
+					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
 				}
 				err = processMsg(nextNotification, outCh)
 			case "bdnBlocks":
 				outCh := c.bdnBlocksChannels[subscriptionID]
 				if outCh == nil {
-					log.Panicf("Bug: no output channel for subscription ID %s", subscriptionID)
+					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
 				}
 				err = processMsg(nextNotification, outCh)
 			case "txReceipts":
 				outCh := c.txReceiptsChannels[subscriptionID]
 				if outCh == nil {
-					log.Panicf("Bug: no output channel for subscription ID %s", subscriptionID)
+					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
 				}
 				err = processMsg(nextNotification, outCh)
 			case "ethOnBlock":
 				outCh := c.ethOnBlockChannels[subscriptionID]
 				if outCh == nil {
-					log.Panicf("Bug: no output channel for subscription ID %s", subscriptionID)
+					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
 				}
 				err = processMsg(nextNotification, outCh)
 			default:
