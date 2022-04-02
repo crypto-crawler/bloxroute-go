@@ -57,44 +57,36 @@ func (txContents *TxContents) ToRaw() ([]byte, error) {
 
 	nonce, err := strconv.ParseUint(txContents.Nonce[2:], 16, 64)
 	if err != nil {
-		panic("line 53")
 		return nil, err
 	}
 	to := common.HexToAddress(txContents.To)
 	amount, ok := big.NewInt(0).SetString(txContents.Value, 0)
 	if !ok {
-		panic("line 59")
 		return nil, errors.New("invalid amount")
 	}
 	gasLimit, err := strconv.ParseUint(txContents.Gas[2:], 16, 64)
 	if err != nil {
-		panic("line 64")
 		return nil, err
 	}
 	gasPrice, ok := big.NewInt(0).SetString(txContents.GasPrice, 0)
 	if !ok {
-		panic("line 69")
 		return nil, errors.New("invalid gas price")
 	}
 	data, err := hex.DecodeString(txContents.Input[2:])
 	if err != nil {
-		panic("line 74")
 		return nil, err
 	}
 
 	r, ok := big.NewInt(0).SetString(txContents.R, 0)
 	if !ok {
-		panic("line 69")
 		return nil, errors.New("invalid R")
 	}
 	s, ok := big.NewInt(0).SetString(txContents.S, 0)
 	if !ok {
-		panic("line 69")
 		return nil, errors.New("invalid S")
 	}
 	v, ok := big.NewInt(0).SetString(txContents.V, 0)
 	if !ok {
-		panic("line 69")
 		return nil, errors.New("invalid V")
 	}
 
