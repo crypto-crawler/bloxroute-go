@@ -95,19 +95,24 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 	}
 	bytes, _ := json.Marshal(arr)
 	arrJson := string(bytes)
-	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"start_monitor_transaction","params":{"transactions":%s,"monitor_speedup":"%v"}}`, arrJson, monitorSpeedup)
+	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","method":"start_monitor_transaction","params":{"transactions":%s,"monitor_speedup":"%v"}}`, arrJson, monitorSpeedup)
 
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
 	if err != nil {
 		return err
 	}
 
-	success := client.waitForCommandResponse()
-	if !success {
-		return errors.New("failed to start monitor transaction")
+	select {
+	case <-time.After(15 * time.Second):
+		return errors.New("Timeout waiting for response")
+	case resp := <-client.commandResponseCh:
+		if resp.Result.Success {
+			return nil
+		} else {
+			bytes, _ := json.Marshal(resp.Result)
+			return errors.New(string(bytes))
+		}
 	}
-
-	return nil
 }
 
 // Stop monitoring given transactions.
@@ -152,15 +157,6 @@ func (client *TransactionStatusClient) StopMonitorTransaction(transaction_hashes
 	}
 
 	return nil
-}
-
-func (client *TransactionStatusClient) waitForCommandResponse() bool {
-	select {
-	case <-time.After(3 * time.Second):
-		return false
-	case resp := <-client.commandResponseCh:
-		return resp.Result.Success
-	}
 }
 
 // Sends a ping message every 5 seconds to keep the WebSocket connection alive.
