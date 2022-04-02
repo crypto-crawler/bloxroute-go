@@ -55,7 +55,7 @@ func TestStartMonitorTransaction(t *testing.T) {
 	assert.NotNil(t, txStatus)
 	assert.Equal(t, common.HexToHash(txStatus.TxHash), common.HexToHash(txJson.TxHash))
 
-	err = transactionStatusClient.StopMonitorTransaction([]common.Hash{common.HexToHash(txStatus.TxHash)})
+	err = transactionStatusClient.StopMonitorTransaction(common.HexToHash(txStatus.TxHash))
 	assert.NoError(t, err)
 
 	close(stopCh)

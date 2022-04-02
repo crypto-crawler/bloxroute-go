@@ -104,7 +104,7 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 
 	select {
 	case <-time.After(15 * time.Second):
-		return errors.New("Timeout waiting for response")
+		return errors.New("Timeout waiting for start_monitor_transaction response")
 	case resp := <-client.commandResponseCh:
 		if resp.Result.Success {
 			return nil
@@ -115,48 +115,26 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 	}
 }
 
-// Stop monitoring given transactions.
-func (client *TransactionStatusClient) StopMonitorTransaction(transaction_hashes []common.Hash) error {
-	arr := make([]string, len(transaction_hashes))
-	for i, txHash := range transaction_hashes {
-		arr[i] = txHash.Hex()[2:]
-	}
-	bytes, _ := json.Marshal(arr)
-	arrJson := string(bytes)
-	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"stop_monitor_transaction","params":{"transaction_hash":%s}}`, arrJson)
-
+// Stop monitoring a transaction.
+func (client *TransactionStatusClient) StopMonitorTransaction(txHash common.Hash) error {
+	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","method":"stop_monitor_transaction","params":{"transaction_hash":"%s"}}`, txHash.Hex()[2:])
+	log.Println(subRequest)
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
 	if err != nil {
 		return err
 	}
 
-	_, nextNotification, err := client.conn.ReadMessage()
-	if err != nil {
-		if ce, ok := err.(*websocket.CloseError); ok {
-			switch ce.Code {
-			case websocket.CloseNormalClosure,
-				websocket.CloseGoingAway,
-				websocket.CloseNoStatusReceived,
-				websocket.CloseAbnormalClosure:
-				return nil
-			default:
-				return err
-			}
+	select {
+	case <-time.After(15 * time.Second):
+		return errors.New("Timeout waiting for stop_monitor_transaction response")
+	case resp := <-client.commandResponseCh:
+		if resp.Result.Success {
+			return nil
 		} else {
-			return err
+			bytes, _ := json.Marshal(resp.Result)
+			return errors.New(string(bytes))
 		}
 	}
-
-	commandResp := commandResponse{}
-	err = json.Unmarshal(nextNotification, &commandResp)
-	if err != nil {
-		return err
-	}
-	if !commandResp.Result.Success {
-		return errors.New(string(nextNotification))
-	}
-
-	return nil
 }
 
 // Sends a ping message every 5 seconds to keep the WebSocket connection alive.
