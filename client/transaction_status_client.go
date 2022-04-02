@@ -243,7 +243,7 @@ func (client *TransactionStatusClient) run() error {
 				return errors.New(string(nextNotification))
 			}
 
-			if msg.Params.Result.TxHash != "" {
+			if msg.Params.Result != nil && msg.Params.Result.TxHash != "" {
 				client.outCh <- msg.Params.Result
 			}
 		}
