@@ -118,7 +118,6 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 // Stop monitoring a transaction.
 func (client *TransactionStatusClient) StopMonitorTransaction(txHash common.Hash) error {
 	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","method":"stop_monitor_transaction","params":{"transaction_hash":"%s"}}`, txHash.Hex()[2:])
-	log.Println(subRequest)
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
 	if err != nil {
 		return err
@@ -148,8 +147,8 @@ func (client *TransactionStatusClient) ping() {
 			return
 		case <-ticker.C:
 			client.mu.Lock()
-			defer client.mu.Unlock()
 			err := client.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
+			client.mu.Unlock()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -196,14 +195,25 @@ func (client *TransactionStatusClient) run() error {
 			}
 
 			{
-				// Is it a command response?
-				commandResp := commandResponse{}
-				err = json.Unmarshal(nextNotification, &commandResp)
-				if err == nil {
-					if commandResp.Result != nil {
-						client.commandResponseCh <- commandResp
-						break
+				m := make(map[string]interface{})
+				err = json.Unmarshal(nextNotification, &m)
+				if err != nil {
+					log.Fatal(string(nextNotification))
+				}
+				if _, ok := m["error"]; ok {
+					log.Fatal(string(nextNotification))
+				}
+				if _, ok := m["result"]; ok {
+					result := m["result"].(map[string]interface{})
+					if _, ok := result["success"]; ok {
+						// a command response
+						commandResp := commandResponse{}
+						err = json.Unmarshal(nextNotification, &commandResp)
+						if err == nil {
+							client.commandResponseCh <- commandResp
+						}
 					}
+					break
 				}
 			}
 
