@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"github.com/crypto-crawler/bloxroute-go/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gorilla/websocket"
 )
 
+// A client to subscribe to the `transactionStatus` stream.
+// See https://docs.bloxroute.com/streams/txstatus
 type TransactionStatusClient struct {
 	conn           *websocket.Conn
 	subscriptionID string
@@ -80,6 +83,8 @@ type commandResponse struct {
 	} `json:"result,omitempty"` // subscription ID is here
 }
 
+// Monitor given transactions.
+// transactions is a list of raw transactions.
 func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]byte, monitorSpeedup bool) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -105,10 +110,12 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 	return nil
 }
 
-func (client *TransactionStatusClient) StopMonitorTransaction(transactions [][]byte, monitorSpeedup bool) error {
+// Stop monitoring given transactions.
+// transactions is a list of  transaction hashes.
+func (client *TransactionStatusClient) StopMonitorTransaction(transactions []common.Hash, monitorSpeedup bool) error {
 	arr := make([]string, len(transactions))
-	for i, tx := range transactions {
-		arr[i] = hex.EncodeToString(tx)
+	for i, txHash := range transactions {
+		arr[i] = txHash.Hex()[2:]
 	}
 	bytes, _ := json.Marshal(arr)
 	arrJson := string(bytes)
