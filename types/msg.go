@@ -105,6 +105,7 @@ type Transaction struct {
 	LocalRegion bool        `json:"localRegion,omitempty"`
 	TxHash      string      `json:"txHash"`
 	TxContents  *TxContents `json:"txContents,omitempty"`
+	RawTx       string      `json:"rawTx,omitempty"`
 }
 
 // bloXroute tx message
