@@ -1,5 +1,17 @@
 package types
 
+import (
+	"bytes"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+	"strconv"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
+)
+
 // The first response after a subscription is sent.
 type SubscriptionResponse struct {
 	Id      int64  `json:"id"`
@@ -34,6 +46,67 @@ type TxContents struct {
 	Value                string `json:"value"`
 	MaxFeePerGas         string `json:"maxFeePerGas,omitempty"`
 	MaxPriorityFeePerGas string `json:"maxPriorityFeePerGas,omitempty"`
+}
+
+// ToRaw converts a TxContents to its RLP encoded byte array.
+func (txContents *TxContents) ToRaw() ([]byte, error) {
+	if txContents.Type != "0x0" {
+		// TODO: for now this library only supports legacy transactions
+		return nil, fmt.Errorf("tx type %s not supported", txContents.Type)
+	}
+
+	nonce, err := strconv.ParseUint(txContents.Nonce[2:], 16, 64)
+	if err != nil {
+		panic("line 53")
+		return nil, err
+	}
+	to := common.HexToAddress(txContents.To)
+	amount, ok := big.NewInt(0).SetString(txContents.Value, 0)
+	if !ok {
+		panic("line 59")
+		return nil, errors.New("invalid amount")
+	}
+	gasLimit, err := strconv.ParseUint(txContents.Gas[2:], 16, 64)
+	if err != nil {
+		panic("line 64")
+		return nil, err
+	}
+	gasPrice, ok := big.NewInt(0).SetString(txContents.GasPrice, 0)
+	if !ok {
+		panic("line 69")
+		return nil, errors.New("invalid gas price")
+	}
+	data, err := hex.DecodeString(txContents.Input[2:])
+	if err != nil {
+		panic("line 74")
+		return nil, err
+	}
+
+	r, ok := big.NewInt(0).SetString(txContents.R, 0)
+	if !ok {
+		panic("line 69")
+		return nil, errors.New("invalid R")
+	}
+	s, ok := big.NewInt(0).SetString(txContents.S, 0)
+	if !ok {
+		panic("line 69")
+		return nil, errors.New("invalid S")
+	}
+	v, ok := big.NewInt(0).SetString(txContents.V, 0)
+	if !ok {
+		panic("line 69")
+		return nil, errors.New("invalid V")
+	}
+
+	// Legacy Transactions are RLP(Nonce, GasPrice, Gas, To, Value, Input, V, R, S)
+	values := []interface{}{nonce, gasPrice, gasLimit, to, amount, data, v, r, s}
+	buf := new(bytes.Buffer)
+	err = rlp.Encode(buf, values)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 type Transaction struct {

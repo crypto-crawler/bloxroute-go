@@ -1,41 +1,13 @@
 package client
 
 import (
-	"context"
-	"errors"
 	"os"
 	"testing"
-	"time"
 
 	bloxroute_types "github.com/crypto-crawler/bloxroute-go/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
-
-func TransactionByHash(ethClient *ethclient.Client, txHash common.Hash) (*types.Transaction, error) {
-	ctx := context.Background()
-	headerCh := make(chan *types.Header)
-
-	sub, err := ethClient.SubscribeNewHead(ctx, headerCh)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		select {
-		case <-time.After(time.Second * 10):
-			sub.Unsubscribe()
-			return nil, errors.New("timeout")
-		case <-headerCh:
-			tx, _, err := ethClient.TransactionByHash(ctx, txHash)
-			if tx != nil || err == nil {
-				return tx, nil
-			}
-		}
-	}
-}
 
 func TestStartMonitorTransaction(t *testing.T) {
 	var transactionStatusClient *TransactionStatusClient = nil
@@ -63,36 +35,22 @@ func TestStartMonitorTransaction(t *testing.T) {
 		assert.NotNil(t, bloXrouteClient)
 	}
 
-	var ethClient *ethclient.Client = nil
-	{
-		fullnodeUrl := os.Getenv("FULLNODE_URL")
-		if fullnodeUrl == "" {
-			assert.FailNow(t, "Please provide the fullnode URL by setting the FULLNODE_URL environment variable")
-		}
-		ctx := context.Background()
-		ethClient, err = ethclient.DialContext(ctx, fullnodeUrl)
-	}
-	assert.NoError(t, err)
-	assert.NotNil(t, ethClient)
-
-	txHashCh := make(chan *bloxroute_types.Transaction)
-	err = bloXrouteClient.SubscribeNewTxs([]string{"tx_hash"}, "", txHashCh)
+	txCh := make(chan *bloxroute_types.Transaction)
+	err = bloXrouteClient.SubscribePendingTxs([]string{"tx_hash", "tx_contents"}, "", txCh)
 	assert.NoError(t, err)
 
-	txHash := <-txHashCh
-	assert.NotEmpty(t, txHash.TxHash)
+	txJson := <-txCh
+	assert.NotEmpty(t, txJson.TxHash)
 
-	tx, err := TransactionByHash(ethClient, common.HexToHash(txHash.TxHash))
+	txRaw, err := txJson.TxContents.ToRaw()
 	assert.NoError(t, err)
-	assert.NotNil(t, tx)
+	assert.NotNil(t, txRaw)
 
-	txRaw, err := tx.MarshalBinary()
-	assert.NoError(t, err)
 	err = transactionStatusClient.StartMonitorTransaction([][]byte{txRaw}, false)
 
 	txStatus := <-txStatusCh
 	assert.NotNil(t, txStatus)
-	assert.Equal(t, common.HexToHash(txStatus.TxHash), common.HexToHash(txHash.TxHash))
+	assert.Equal(t, common.HexToHash(txStatus.TxHash), common.HexToHash(txJson.TxHash))
 
 	err = transactionStatusClient.StopMonitorTransaction([]common.Hash{common.HexToHash(txStatus.TxHash)})
 	assert.NoError(t, err)
