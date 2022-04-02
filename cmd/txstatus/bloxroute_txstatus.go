@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -40,7 +41,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = bloXrouteClient.SubscribeNewTxs([]string{"tx_hash", "tx_contents"}, "", pendingTxCh)
+		err = bloXrouteClient.SubscribeNewTxs([]string{"tx_hash", "raw_tx"}, "", pendingTxCh)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -60,8 +61,8 @@ func main() {
 			close(stopCh)
 			time.Sleep(1 * time.Second) // give some time for other goroutines to stop
 			return
-		case tx := <-pendingTxCh:
-			txRaw, err := tx.TxContents.ToRaw()
+		case txJson := <-pendingTxCh:
+			txRaw, err := hex.DecodeString(txJson.RawTx[2:])
 			if err == nil {
 				err = transactionStatusClient.StartMonitorTransaction([][]byte{txRaw}, false)
 				if err != nil {
