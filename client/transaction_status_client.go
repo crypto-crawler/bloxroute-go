@@ -111,15 +111,14 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 }
 
 // Stop monitoring given transactions.
-// transactions is a list of  transaction hashes.
-func (client *TransactionStatusClient) StopMonitorTransaction(transactions []common.Hash, monitorSpeedup bool) error {
-	arr := make([]string, len(transactions))
-	for i, txHash := range transactions {
+func (client *TransactionStatusClient) StopMonitorTransaction(transaction_hashes []common.Hash) error {
+	arr := make([]string, len(transaction_hashes))
+	for i, txHash := range transaction_hashes {
 		arr[i] = txHash.Hex()[2:]
 	}
 	bytes, _ := json.Marshal(arr)
 	arrJson := string(bytes)
-	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"stop_monitor_transaction","params":{"transactions":%s}}`, arrJson)
+	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"stop_monitor_transaction","params":{"transaction_hash":%s}}`, arrJson)
 
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
 	if err != nil {
@@ -128,8 +127,21 @@ func (client *TransactionStatusClient) StopMonitorTransaction(transactions []com
 
 	_, nextNotification, err := client.conn.ReadMessage()
 	if err != nil {
-		return err
+		if ce, ok := err.(*websocket.CloseError); ok {
+			switch ce.Code {
+			case websocket.CloseNormalClosure,
+				websocket.CloseGoingAway,
+				websocket.CloseNoStatusReceived,
+				websocket.CloseAbnormalClosure:
+				return nil
+			default:
+				return err
+			}
+		} else {
+			return err
+		}
 	}
+
 	commandResp := commandResponse{}
 	err = json.Unmarshal(nextNotification, &commandResp)
 	if err != nil {
@@ -195,7 +207,19 @@ func (client *TransactionStatusClient) run() error {
 			_, nextNotification, err := client.conn.ReadMessage()
 			if err != nil {
 				log.Println(err)
-				break
+				if ce, ok := err.(*websocket.CloseError); ok {
+					switch ce.Code {
+					case websocket.CloseNormalClosure,
+						websocket.CloseGoingAway,
+						websocket.CloseNoStatusReceived,
+						websocket.CloseAbnormalClosure:
+						return nil
+					default:
+						return err
+					}
+				} else {
+					return err
+				}
 			}
 
 			{
