@@ -10,16 +10,12 @@ import (
 )
 
 func TestSendTransaction(t *testing.T) {
-	var cloudApiClient *CloudApiClient = nil
-	//	var bloXrouteClient *BloXrouteClient = nil
-	var err error = nil
 	stopCh := make(chan struct{})
-
 	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
 	}
-	cloudApiClient, err = NewCloudApiClient(authorizationHeader, stopCh)
+	cloudApiClient, err := NewCloudApiClient(authorizationHeader, stopCh)
 	assert.NoError(t, err)
 	assert.NotNil(t, cloudApiClient)
 

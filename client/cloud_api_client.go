@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type SendTxResponse struct {
+type sendTxResponse struct {
 	Id      int64  `json:"id"`
 	JsonRPC string `json:"jsonrpc"`
 	Result  *struct {
@@ -21,7 +21,7 @@ type SendTxResponse struct {
 	} `json:"result,omitempty"` // subscription ID is here
 }
 
-// All cloud APIs available on wss://api.blxrbdn.com/ws are implement here.
+// All cloud APIs available on wss://api.blxrbdn.com/ws are implemented here.
 type CloudApiClient struct {
 	conn   *websocket.Conn
 	stopCh <-chan struct{}
@@ -65,7 +65,6 @@ func (client *CloudApiClient) SendTransaction(transaction []byte, nonceMonitorin
 		return common.Hash{}, err
 	}
 	_, resp, err := client.conn.ReadMessage()
-
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -79,7 +78,7 @@ func (client *CloudApiClient) SendTransaction(transaction []byte, nonceMonitorin
 		return common.Hash{}, errors.New(fmt.Sprintf("%v", m["error"]))
 	}
 	if _, ok := m["result"]; ok {
-		sendTxResp := SendTxResponse{}
+		sendTxResp := sendTxResponse{}
 		err = json.Unmarshal(resp, &sendTxResp)
 		if err != nil {
 			return common.Hash{}, err
@@ -92,6 +91,8 @@ func (client *CloudApiClient) SendTransaction(transaction []byte, nonceMonitorin
 
 // See https://docs.bloxroute.com/apis/ping.
 func (client *CloudApiClient) Ping() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(`{"jsonrpc":"2.0","method":"ping"}`))
 	if err != nil {
 		return err
