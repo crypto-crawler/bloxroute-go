@@ -81,7 +81,7 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 		rawChannels:            make(map[string]chan<- string),
 	}
 
-	client.ping()
+	go client.ping()
 	go client.run()
 
 	return client, nil
@@ -399,21 +399,20 @@ func (c *BloXrouteClient) waitForSubscriptionID() (string, error) {
 // https://docs.bloxroute.com/apis/ping
 func (c *BloXrouteClient) ping() {
 	ticker := time.NewTicker(5 * time.Second) // ping every 5 seconds
-	go func() {
-		for {
-			select {
-			case <-c.stopCh:
-				return
-			case <-ticker.C:
-				c.mu.Lock()
-				defer c.mu.Unlock()
-				err := c.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
-				if err != nil {
-					log.Fatal(err)
-				}
+	for {
+		select {
+		case <-c.stopCh:
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			defer c.mu.Unlock()
+			err := c.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
-	}()
+	}
 }
 
 // Close is used to terminate our websocket client

@@ -144,6 +144,7 @@ func (client *TransactionStatusClient) ping() {
 	for {
 		select {
 		case <-client.stopCh:
+			ticker.Stop()
 			return
 		case <-ticker.C:
 			client.mu.Lock()
