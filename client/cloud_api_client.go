@@ -31,41 +31,51 @@ func NewCloudApiClient(authorizationHeader string, stopCh <-chan struct{}) (*Clo
 		return nil, err
 	}
 
-	// ping
-	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"jsonrpc":"2.0","method":"ping"}`))
+	client := &CloudApiClient{
+		conn:   conn,
+		stopCh: stopCh,
+		mu:     &sync.Mutex{},
+	}
+
+	err = client.Ping()
 	if err != nil {
 		return nil, err
 	}
 
-	_, nextNotification, err := conn.ReadMessage()
+	return client, nil
+}
+
+// Send a transaction via BDN.
+func (client *CloudApiClient) SendTransaction(transactions [][]byte, nonceMonitoring bool, blockchainNetwork string) (common.Hash, error) {
+	return common.Hash{}, errors.New("not implemented")
+}
+
+// See https://docs.bloxroute.com/apis/ping.
+func (client *CloudApiClient) Ping() error {
+	err := client.conn.WriteMessage(websocket.TextMessage, []byte(`{"jsonrpc":"2.0","method":"ping"}`))
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	_, nextNotification, err := client.conn.ReadMessage()
+	if err != nil {
+		return err
 	}
 	pongMsg := pongMsg{}
 	err = json.Unmarshal(nextNotification, &pongMsg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if pongMsg.Result.Pong == "" {
-		return nil, errors.New(string(nextNotification))
+		return errors.New(string(nextNotification))
 	}
-
-	return &CloudApiClient{
-		conn:   conn,
-		stopCh: stopCh,
-		mu:     &sync.Mutex{},
-	}, nil
-}
-
-// Send a transaction via BDN.
-func (c *BloXrouteClient) sendTransaction(transactions [][]byte, nonceMonitoring bool, blockchainNetwork string) (common.Hash, error) {
-	return common.Hash{}, errors.New("not implemented")
+	return nil
 }
 
 type pongMsg struct {
 	Id      int64  `json:"id"`
 	JsonRPC string `json:"jsonrpc"`
-	Result  *struct {
+	Result  struct {
 		Pong string `json:"pong"`
-	} `json:"result,omitempty"` // subscription ID is here
+	} `json:"result"`
 }
