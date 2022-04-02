@@ -114,7 +114,7 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		rawChannels:            make(map[string]chan<- string),
 	}
 
-	client.ping()
+	go client.ping()
 	go client.run()
 
 	return client, nil

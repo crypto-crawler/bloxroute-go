@@ -40,7 +40,7 @@ func NewTransactionStatusClient(authorizationHeader string, stopCh <-chan struct
 		return nil, err
 	}
 
-	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"jsonrpc":"2.0","id":1,"method":"subscribe","params":["transactionStatus",{"include":["tx_hash","status"]}]}`))
+	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"jsonrpc":"2.0","method":"subscribe","params":["transactionStatus",{"include":["tx_hash","status"]}]}`))
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 	}
 
 	select {
-	case <-time.After(15 * time.Second):
+	case <-time.After(3 * time.Second):
 		return errors.New("Timeout waiting for start_monitor_transaction response")
 	case resp := <-client.commandResponseCh:
 		if resp.Result.Success {
@@ -125,7 +125,7 @@ func (client *TransactionStatusClient) StopMonitorTransaction(txHash common.Hash
 	}
 
 	select {
-	case <-time.After(15 * time.Second):
+	case <-time.After(3 * time.Second):
 		return errors.New("Timeout waiting for stop_monitor_transaction response")
 	case resp := <-client.commandResponseCh:
 		if resp.Result.Success {
