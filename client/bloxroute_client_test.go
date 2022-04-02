@@ -109,7 +109,7 @@ func TestSubscribeRaw(t *testing.T) {
 	assert.NoError(t, err)
 
 	outCh := make(chan string)
-	subscriptionID, err := client.SubscribeRaw(`{"method":"subscribe","params":["transactionStatus",{"include":["tx_hash","status"]}]}`, outCh)
+	subscriptionID, err := client.SubscribeRaw(`{"method":"subscribe","params":["newTxs",{"include":["tx_hash","tx_contents"]}]}`, outCh)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, subscriptionID)
 
