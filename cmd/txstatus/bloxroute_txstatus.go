@@ -54,12 +54,20 @@ func main() {
 		log.Fatal(err)
 	}
 
+	go func() {
+		for txStatus := range statusCh {
+			bytes, _ := json.Marshal(txStatus)
+			fmt.Println(string(bytes))
+		}
+	}()
+
 	for {
 		select {
 		case <-signals:
 			log.Println("Ctrl+C detected, exiting...")
 			close(stopCh)
 			time.Sleep(1 * time.Second) // give some time for other goroutines to stop
+			close(statusCh)
 			return
 		case txJson := <-pendingTxCh:
 			txRaw, err := hex.DecodeString(txJson.RawTx[2:])
@@ -69,9 +77,6 @@ func main() {
 					log.Fatal(err)
 				}
 			}
-		case txStatus := <-statusCh:
-			bytes, _ := json.Marshal(txStatus)
-			fmt.Println(string(bytes))
 		}
 	}
 }
