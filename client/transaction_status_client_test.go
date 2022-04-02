@@ -43,10 +43,11 @@ func TestStartMonitorTransaction(t *testing.T) {
 	txJson := <-txCh
 	assert.NotEmpty(t, txJson.TxHash)
 
-	// txRaw, err := txJson.TxContents.ToRaw()
+	txRawComputed, err := txJson.TxContents.ToRaw()
 	txRaw, err := hex.DecodeString(txJson.RawTx[2:])
 	assert.NoError(t, err)
 	assert.NotNil(t, txRaw)
+	assert.Equal(t, txRawComputed, txRaw)
 
 	err = transactionStatusClient.StartMonitorTransaction([][]byte{txRaw}, false)
 
