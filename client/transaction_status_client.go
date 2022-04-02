@@ -69,7 +69,7 @@ func NewTransactionStatusClient(authorizationHeader string, stopCh <-chan struct
 		commandResponseCh: make(chan commandResponse),
 	}
 
-	client.ping()
+	go client.ping()
 	go client.run()
 
 	return client, nil
@@ -141,21 +141,19 @@ func (client *TransactionStatusClient) StopMonitorTransaction(txHash common.Hash
 // https://docs.bloxroute.com/apis/ping
 func (client *TransactionStatusClient) ping() {
 	ticker := time.NewTicker(5 * time.Second) // ping every 5 seconds
-	go func() {
-		for {
-			select {
-			case <-client.stopCh:
-				return
-			case <-ticker.C:
-				client.mu.Lock()
-				defer client.mu.Unlock()
-				err := client.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
-				if err != nil {
-					log.Fatal(err)
-				}
+	for {
+		select {
+		case <-client.stopCh:
+			return
+		case <-ticker.C:
+			client.mu.Lock()
+			defer client.mu.Unlock()
+			err := client.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
-	}()
+	}
 }
 
 // Close is used to terminate our websocket client
