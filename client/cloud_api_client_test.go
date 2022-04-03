@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/crypto-crawler/bloxroute-go/types"
+	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,13 +32,14 @@ func TestSendTransaction(t *testing.T) {
 		To:       "0xe9e7cea3dedca5984780bafc599bd69add087d56",
 		From:     "0x17db3ed2d06fee92de7bef42c4f4edcbda7494f4",
 		GasPrice: "0x12a05f200",
-		Hash:     "0xdf2c69ac03477a82118c7758b853c9bc7bc29667804b27b5434d6d9da86aa0ff",
+		Hash:     "0x529fe2e13417033ae0ed4e7efab3fd37a09be85b3d60ddc9bdd95665b2f37ef1",
 	}
 	raw, err := txContents.ToRaw()
-
+	tx := new(geth_types.Transaction)
+	err = tx.UnmarshalBinary(raw)
 	txHash, err := cloudApiClient.SendTransaction(raw, false, "BSC-Mainnet")
 	fmt.Printf("txHash: %s\n", txHash)
 	assert.NoError(t, err)
-	assert.Equal(t, txHash.Hex(), "0x529fe2e13417033ae0ed4e7efab3fd37a09be85b3d60ddc9bdd95665b2f37ef1")
+	assert.Equal(t, txHash.Hex(), tx.Hash().Hex())
 	close(stopCh)
 }
