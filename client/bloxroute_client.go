@@ -252,7 +252,7 @@ func (c *BloXrouteClient) Unsubscribe(subscriptionID string) error {
 	}
 
 	command := fmt.Sprintf(`{"method": "unsubscribe", "params": ["%s"]}`, subscriptionID)
-	log.Println(command)
+	//log.Println(command)
 	err := c.conn.WriteMessage(websocket.TextMessage, []byte(command))
 	if err != nil {
 		return err
@@ -369,7 +369,7 @@ func (c *BloXrouteClient) subscribe(params []interface{}) (string, error) {
 }
 
 func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
-	log.Println(subRequest)
+	//log.Println(subRequest)
 	// This function is always called sequentially.
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -501,16 +501,16 @@ func (c *BloXrouteClient) run() error {
 					log.Fatal(string(nextNotification))
 				}
 				if _, ok := m["params"]; !ok {
-					log.Println(string(nextNotification))
+					//log.Println(string(nextNotification))
 					break
 				}
 				params := m["params"].(map[string]interface{})
 				if _, ok := params["result"]; !ok {
-					log.Println(string(nextNotification))
+					//log.Println(string(nextNotification))
 					break
 				}
 				if _, ok := params["subscription"]; !ok {
-					log.Println(string(nextNotification))
+					//log.Println(string(nextNotification))
 					break
 				}
 				subscriptionID = params["subscription"].(string)
