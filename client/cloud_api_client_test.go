@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -16,7 +15,7 @@ func TestSendTransaction(t *testing.T) {
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
 	}
-	cloudApiClient, err := NewCloudApiClient(authorizationHeader, stopCh)
+	cloudApiClient, err := NewCloudApiClient(authorizationHeader, stopCh, "wss://47.253.9.21/ws")
 	assert.NoError(t, err)
 	assert.NotNil(t, cloudApiClient)
 
@@ -38,7 +37,6 @@ func TestSendTransaction(t *testing.T) {
 	tx := new(geth_types.Transaction)
 	err = tx.UnmarshalBinary(raw)
 	txHash, err := cloudApiClient.SendTransaction(raw, false, "BSC-Mainnet")
-	fmt.Printf("txHash: %s\n", txHash)
 	assert.NoError(t, err)
 	assert.Equal(t, txHash.Hex(), tx.Hash().Hex())
 	close(stopCh)

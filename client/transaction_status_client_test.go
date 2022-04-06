@@ -21,7 +21,7 @@ func TestStartMonitorTransaction(t *testing.T) {
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
 	}
-	transactionStatusClient, err = NewTransactionStatusClient(authorizationHeader, stopCh, txStatusCh)
+	transactionStatusClient, err = NewTransactionStatusClient(authorizationHeader, stopCh, txStatusCh, "wss://47.253.9.21/ws")
 	assert.NoError(t, err)
 	assert.NotNil(t, transactionStatusClient)
 

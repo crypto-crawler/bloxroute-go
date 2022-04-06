@@ -27,15 +27,25 @@ type TransactionStatusClient struct {
 	// https://pkg.go.dev/github.com/gorilla/websocket#hdr-Concurrency
 	mu                *sync.Mutex
 	commandResponseCh chan commandResponse
+	pongCh            chan pongMsg
 }
 
-func NewTransactionStatusClient(authorizationHeader string, stopCh <-chan struct{}, outCh chan<- *types.TxStatus) (*TransactionStatusClient, error) {
+// Constructor.
+//
+// You can pass an optional url to connect to a specific IP address,
+// it defaults to wss://api.blxrbdn.com/ws if empty.
+//
+// Availabel IP addresses are here https://docs.bloxroute.com/introduction/cloud-api-ips
+func NewTransactionStatusClient(authorizationHeader string, stopCh <-chan struct{}, outCh chan<- *types.TxStatus, url string) (*TransactionStatusClient, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 	}
 	dialer := websocket.DefaultDialer
 	dialer.TLSClientConfig = tlsConfig
-	conn, _, err := dialer.Dial("wss://api.blxrbdn.com/ws", http.Header{"Authorization": []string{authorizationHeader}})
+	if url == "" {
+		url = "wss://api.blxrbdn.com/ws"
+	}
+	conn, _, err := dialer.Dial(url, http.Header{"Authorization": []string{authorizationHeader}})
 	if err != nil {
 		return nil, err
 	}
@@ -67,10 +77,31 @@ func NewTransactionStatusClient(authorizationHeader string, stopCh <-chan struct
 		outCh:             outCh,
 		mu:                &sync.Mutex{},
 		commandResponseCh: make(chan commandResponse),
+		pongCh:            make(chan pongMsg),
 	}
 
-	go client.ping()
 	go client.run()
+
+	//  Send a ping every 5 seconds to keep the WebSocket connection alive
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-stopCh:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if _, err := client.Ping(); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}()
+
+	// test the connection
+	if _, err = client.Ping(); err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }
@@ -86,9 +117,6 @@ type commandResponse struct {
 // Monitor given transactions.
 // transactions is a list of raw transactions.
 func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]byte, monitorSpeedup bool) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-
 	arr := make([]string, len(transactions))
 	for i, tx := range transactions {
 		arr[i] = hex.EncodeToString(tx)
@@ -97,7 +125,9 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 	arrJson := string(bytes)
 	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","method":"start_monitor_transaction","params":{"transactions":%s,"monitor_speedup":"%v"}}`, arrJson, monitorSpeedup)
 
+	client.mu.Lock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
+	client.mu.Unlock()
 	if err != nil {
 		return err
 	}
@@ -118,7 +148,9 @@ func (client *TransactionStatusClient) StartMonitorTransaction(transactions [][]
 // Stop monitoring a transaction.
 func (client *TransactionStatusClient) StopMonitorTransaction(txHash common.Hash) error {
 	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","method":"stop_monitor_transaction","params":{"transaction_hash":"%s"}}`, txHash.Hex()[2:])
+	client.mu.Lock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
+	client.mu.Unlock()
 	if err != nil {
 		return err
 	}
@@ -136,34 +168,28 @@ func (client *TransactionStatusClient) StopMonitorTransaction(txHash common.Hash
 	}
 }
 
-// Sends a ping message every 5 seconds to keep the WebSocket connection alive.
-// https://docs.bloxroute.com/apis/ping
-func (client *TransactionStatusClient) ping() {
-	ticker := time.NewTicker(5 * time.Second) // ping every 5 seconds
-	for {
-		select {
-		case <-client.stopCh:
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			client.mu.Lock()
-			err := client.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
-			client.mu.Unlock()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+// Ping() sends a ping message to websocket server.
+// See https://docs.bloxroute.com/apis/ping
+func (c *TransactionStatusClient) Ping() (time.Time, error) {
+	c.mu.Lock()
+	err := c.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
+	c.mu.Unlock()
+	if err != nil {
+		return time.Now(), err
+	}
+
+	// wait for pong
+	select {
+	case <-time.After(3 * time.Second):
+		return time.Now(), errors.New("timeout")
+	case resp := <-c.pongCh:
+		return time.Parse("2006-01-02 15:04:05.99", resp.Result.Pong)
 	}
 }
 
 // Close is used to terminate our websocket client
 func (client *TransactionStatusClient) close() error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	err := client.conn.WriteMessage(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-	)
+	err := client.conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(3*time.Second))
 	client.conn.Close()
 	return err
 }
@@ -191,6 +217,18 @@ func (client *TransactionStatusClient) run() error {
 					}
 				} else {
 					return err
+				}
+			}
+
+			{
+				// Is it pongMsg?
+				pongMsg := pongMsg{}
+				json.Unmarshal(nextNotification, &pongMsg)
+				if err == nil {
+					if pongMsg.Result.Pong != "" {
+						client.pongCh <- pongMsg
+						break
+					}
 				}
 			}
 

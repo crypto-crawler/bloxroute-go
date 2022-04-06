@@ -26,6 +26,7 @@ type BloXrouteClient struct {
 	// Subscription ID to command
 	idToCommandMap         map[string]string
 	subscriptionResponseCh chan types.SubscriptionResponse
+	pongCh                 chan pongMsg
 	// key is the subscription ID, value is user provided  output channel
 	newTxsChannels     map[string]chan<- *types.Transaction        // output channels for `newTxs`
 	pendingTxsChannels map[string]chan<- *types.Transaction        // output channels for `pendingTxs`
@@ -72,6 +73,7 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 		idToStreamNameMap:      make(map[string]string),
 		idToCommandMap:         make(map[string]string),
 		subscriptionResponseCh: make(chan types.SubscriptionResponse),
+		pongCh:                 make(chan pongMsg),
 		newTxsChannels:         make(map[string]chan<- *types.Transaction),
 		pendingTxsChannels:     make(map[string]chan<- *types.Transaction),
 		newBlocksChannels:      make(map[string]chan<- *types.Block),
@@ -81,8 +83,28 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 		rawChannels:            make(map[string]chan<- string),
 	}
 
-	go client.ping()
 	go client.run()
+
+	//  Send a ping every 5 seconds to keep the WebSocket connection alive
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-stopCh:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if _, err := client.Ping(); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}()
+
+	// test the connection
+	if _, err = client.Ping(); err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }
@@ -105,6 +127,7 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		idToStreamNameMap:      make(map[string]string),
 		idToCommandMap:         make(map[string]string),
 		subscriptionResponseCh: make(chan types.SubscriptionResponse),
+		pongCh:                 make(chan pongMsg),
 		newTxsChannels:         make(map[string]chan<- *types.Transaction),
 		pendingTxsChannels:     make(map[string]chan<- *types.Transaction),
 		newBlocksChannels:      make(map[string]chan<- *types.Block),
@@ -114,8 +137,28 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		rawChannels:            make(map[string]chan<- string),
 	}
 
-	go client.ping()
 	go client.run()
+
+	//  Send a ping every 5 seconds to keep the WebSocket connection alive
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-stopCh:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if _, err := client.Ping(); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}()
+
+	// test the connection
+	if _, err = client.Ping(); err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }
@@ -252,7 +295,7 @@ func (c *BloXrouteClient) Unsubscribe(subscriptionID string) error {
 	}
 
 	command := fmt.Sprintf(`{"method": "unsubscribe", "params": ["%s"]}`, subscriptionID)
-	//log.Println(command)
+	log.Println(command)
 	err := c.conn.WriteMessage(websocket.TextMessage, []byte(command))
 	if err != nil {
 		return err
@@ -369,60 +412,48 @@ func (c *BloXrouteClient) subscribe(params []interface{}) (string, error) {
 }
 
 func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
-	//log.Println(subRequest)
+	log.Println(subRequest)
 	// This function is always called sequentially.
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	err := c.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
-	if err != nil {
-		return "", err
-	}
-	subscriptionID, err := c.waitForSubscriptionID()
+	c.mu.Unlock()
 	if err != nil {
 		return "", err
 	}
 
-	c.idToCommandMap[subscriptionID] = subRequest
-	return subscriptionID, nil
-}
-
-func (c *BloXrouteClient) waitForSubscriptionID() (string, error) {
+	// wait for subscription confirmation
 	select {
 	case <-time.After(3 * time.Second):
 		return "", errors.New("timeout")
 	case resp := <-c.subscriptionResponseCh:
+		subscriptionID := resp.Result
+		c.idToCommandMap[subscriptionID] = subRequest
 		return resp.Result, nil
 	}
 }
 
-// Sends a ping message every 5 seconds to keep the WebSocket connection alive.
-// https://docs.bloxroute.com/apis/ping
-func (c *BloXrouteClient) ping() {
-	ticker := time.NewTicker(5 * time.Second) // ping every 5 seconds
-	for {
-		select {
-		case <-c.stopCh:
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			c.mu.Lock()
-			defer c.mu.Unlock()
-			err := c.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+// Ping() sends a ping message to websocket server.
+// See https://docs.bloxroute.com/apis/ping
+func (c *BloXrouteClient) Ping() (time.Time, error) {
+	c.mu.Lock()
+	err := c.conn.WriteMessage(websocket.TextMessage, []byte(`{"method": "ping"}`))
+	c.mu.Unlock()
+	if err != nil {
+		return time.Now(), err
+	}
+
+	// wait for pong
+	select {
+	case <-time.After(3 * time.Second):
+		return time.Now(), errors.New("timeout")
+	case resp := <-c.pongCh:
+		return time.Parse("2006-01-02 15:04:05.99", resp.Result.Pong)
 	}
 }
 
 // Close is used to terminate our websocket client
 func (c *BloXrouteClient) close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	err := c.conn.WriteMessage(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-	)
+	err := c.conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(3*time.Second))
 	c.conn.Close()
 	return err
 }
@@ -478,6 +509,18 @@ func (c *BloXrouteClient) run() error {
 			}
 
 			{
+				// Is it pongMsg?
+				pongMsg := pongMsg{}
+				json.Unmarshal(nextNotification, &pongMsg)
+				if err == nil {
+					if pongMsg.Result.Pong != "" {
+						c.pongCh <- pongMsg
+						break
+					}
+				}
+			}
+
+			{
 				// Is it a subscription response?
 				subscriptionResp := types.SubscriptionResponse{}
 				err = json.Unmarshal(nextNotification, &subscriptionResp)
@@ -501,16 +544,16 @@ func (c *BloXrouteClient) run() error {
 					log.Fatal(string(nextNotification))
 				}
 				if _, ok := m["params"]; !ok {
-					//log.Println(string(nextNotification))
+					log.Println(string(nextNotification))
 					break
 				}
 				params := m["params"].(map[string]interface{})
 				if _, ok := params["result"]; !ok {
-					//log.Println(string(nextNotification))
+					log.Println(string(nextNotification))
 					break
 				}
 				if _, ok := params["subscription"]; !ok {
-					//log.Println(string(nextNotification))
+					log.Println(string(nextNotification))
 					break
 				}
 				subscriptionID = params["subscription"].(string)
