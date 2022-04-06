@@ -29,6 +29,28 @@ func TestNewTxs(t *testing.T) {
 	close(stopCh)
 }
 
+func TestNewTxsWithFilter(t *testing.T) {
+	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
+	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
+	if certFile == "" || keyFile == "" {
+		assert.FailNow(t, "Please provide the bloXroute cert and key files path in the environment variable variable")
+	}
+
+	stopCh := make(chan struct{})
+	client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
+	assert.NoError(t, err)
+
+	txCh := make(chan *types.Transaction)
+	// monitor transactions sent to PancakeSwap router
+	err = client.SubscribeNewTxs(nil, "to = 0x10ED43C718714eb63d5aA57B78B54704E256024E", txCh)
+	assert.NoError(t, err)
+
+	tx := <-txCh
+	assert.NotEmpty(t, tx.TxHash)
+
+	close(stopCh)
+}
+
 func TestNewBlocks(t *testing.T) {
 	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
 	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
