@@ -49,7 +49,7 @@ func main() {
 
 	statusCh := make(chan *types.TxStatus)
 	log.Println("Connecting to bloXroute cloud")
-	transactionStatusClient, err := client.NewTransactionStatusClient(*header, stopCh, statusCh)
+	transactionStatusClient, err := client.NewTransactionStatusClient(*header, stopCh, statusCh, "")
 	if err != nil {
 		log.Fatal(err)
 	}
