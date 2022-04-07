@@ -2,6 +2,7 @@ package client
 
 import (
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/crypto-crawler/bloxroute-go/types"
 	"github.com/gorilla/websocket"
 )
@@ -26,6 +28,7 @@ type BloXrouteClient struct {
 	// Subscription ID to command
 	idToCommandMap         map[string]string
 	subscriptionResponseCh chan types.SubscriptionResponse
+	sendTxChannel	   	   chan common.Hash
 	pongCh                 chan pongMsg
 	// key is the subscription ID, value is user provided  output channel
 	newTxsChannels     map[string]chan<- *types.Transaction        // output channels for `newTxs`
@@ -73,6 +76,7 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 		idToStreamNameMap:      make(map[string]string),
 		idToCommandMap:         make(map[string]string),
 		subscriptionResponseCh: make(chan types.SubscriptionResponse),
+		sendTxChannel:	   	    make(chan common.Hash),
 		pongCh:                 make(chan pongMsg),
 		newTxsChannels:         make(map[string]chan<- *types.Transaction),
 		pendingTxsChannels:     make(map[string]chan<- *types.Transaction),
@@ -127,6 +131,7 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		idToStreamNameMap:      make(map[string]string),
 		idToCommandMap:         make(map[string]string),
 		subscriptionResponseCh: make(chan types.SubscriptionResponse),
+		sendTxChannel:	   	    make(chan common.Hash),
 		pongCh:                 make(chan pongMsg),
 		newTxsChannels:         make(map[string]chan<- *types.Transaction),
 		pendingTxsChannels:     make(map[string]chan<- *types.Transaction),
@@ -284,6 +289,27 @@ func (c *BloXrouteClient) SubscribeRaw(subRequest string, outCh chan<- string) (
 	c.rawChannels[subscriptionID] = outCh
 	return subscriptionID, nil
 }
+
+
+// Send a transaction via BDN.
+func (client *BloXrouteClient) SendTransaction(transaction []byte, nonceMonitoring bool, blockchainNetwork string) (common.Hash, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	subRequest := fmt.Sprintf(`{"jsonrpc":"2.0","method":"blxr_tx","params":{"transaction":"%s","nonce_monitoring":"%v","blockchain_network":"%v"}}`, hex.EncodeToString(transaction), nonceMonitoring, blockchainNetwork)
+	err := client.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	// wait for response
+	select {
+	case <-time.After(3 * time.Second):
+		return common.Hash{}, errors.New("timeout")
+	case txHash := <-client.sendTxChannel:
+		return txHash,nil
+	}
+}
+
 
 func (c *BloXrouteClient) Unsubscribe(subscriptionID string) error {
 	c.mu.Lock()
@@ -527,6 +553,19 @@ func (c *BloXrouteClient) run() error {
 				if err == nil {
 					if subscriptionResp.Result != "" {
 						c.subscriptionResponseCh <- subscriptionResp
+						break
+					}
+				}
+			}
+
+
+			{
+				// Is it a sendTxResponse?
+				sendTxResp := types.SendTxResponse{}
+				err = json.Unmarshal(nextNotification, &sendTxResp)
+				if err == nil {
+					if sendTxResp.Result != nil && sendTxResp.Result.TxHash != "" {
+						c.sendTxChannel <- common.HexToHash(sendTxResp.Result.TxHash)
 						break
 					}
 				}
