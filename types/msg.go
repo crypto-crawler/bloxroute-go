@@ -19,16 +19,6 @@ type SubscriptionResponse struct {
 	JsonRPC string `json:"jsonrpc"`
 }
 
-
-// the response for sending transaction
-type SendTxResponse struct {
-	Id      int64  `json:"id"`
-	JsonRPC string `json:"jsonrpc"`
-	Result  *struct {
-		TxHash string `json:"txHash"`
-	} `json:"result,omitempty"` // subscription ID is here
-}
-
 // bloXroute websocket message
 type WebsocketMsg[T any] struct {
 	JsonRPC string `json:"jsonrpc"`

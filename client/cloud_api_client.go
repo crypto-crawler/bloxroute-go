@@ -15,14 +15,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type sendTxResponse struct {
-	Id      int64  `json:"id"`
-	JsonRPC string `json:"jsonrpc"`
-	Result  *struct {
-		TxHash string `json:"txHash"`
-	} `json:"result,omitempty"` // subscription ID is here
-}
-
 // All cloud APIs available on wss://api.blxrbdn.com/ws are implemented here.
 type CloudApiClient struct {
 	conn   *websocket.Conn
