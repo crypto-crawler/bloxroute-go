@@ -47,7 +47,7 @@ func TestNewTxsWithFilter(t *testing.T) {
 
 	tx := <-txCh
 	assert.NotEmpty(t, tx.TxHash)
-
+	assert.Equal(t, tx.TxContents.To, "0x10ED43C718714eb63d5aA57B78B54704E256024E")
 	close(stopCh)
 }
 
