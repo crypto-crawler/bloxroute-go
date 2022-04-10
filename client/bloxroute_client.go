@@ -436,7 +436,6 @@ func (c *BloXrouteClient) subscribe(params []interface{}) (string, error) {
 }
 
 func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
-	log.Println(subRequest)
 	// This function is always called sequentially.
 	c.mu.Lock()
 	err := c.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))

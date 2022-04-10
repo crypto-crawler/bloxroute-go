@@ -42,7 +42,7 @@ func TestNewTxsWithFilter(t *testing.T) {
 
 	txCh := make(chan *types.Transaction)
 	// monitor transactions sent to PancakeSwap router
-	err = client.SubscribeNewTxs(nil, "to = 0x10ED43C718714eb63d5aA57B78B54704E256024E", txCh)
+	err = client.SubscribeNewTxs(nil, "To==0x10ED43C718714eb63d5aA57B78B54704E256024E", txCh)
 	assert.NoError(t, err)
 
 	tx := <-txCh
