@@ -179,3 +179,13 @@ func TestUnsubscribeShouldSucceed(t *testing.T) {
 
 	close(stopCh)
 }
+
+func TestExtractTaskDisabledEvent(t *testing.T) {
+	response := "{commandMethod:eth_call blockOffset:0 callName:pair_0xB65697ec1A73eC1bF82677e62Cb86d9369Ba6c34 callPayload:{\"data\":\"0x0902f1ac\",\"to\":\"0xB65697ec1A73eC1bF82677e62Cb86d9369Ba6c34\"} active:false}"
+	callParams, err := extractTaskDisabledEvent(response)
+	assert.NoError(t, err)
+	assert.Equal(t, "eth_call", callParams["method"])
+	assert.Equal(t, "pair_0xB65697ec1A73eC1bF82677e62Cb86d9369Ba6c34", callParams["name"])
+	assert.Equal(t, "0xB65697ec1A73eC1bF82677e62Cb86d9369Ba6c34", callParams["to"])
+	assert.Equal(t, "0x0902f1ac", callParams["data"])
+}

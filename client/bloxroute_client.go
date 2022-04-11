@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 
@@ -685,4 +686,35 @@ type sendTxResponse struct {
 	Result  *struct {
 		TxHash string `json:"txHash"`
 	} `json:"result,omitempty"` // subscription ID is here
+}
+
+func extractTaskDisabledEvent(response string) (map[string]string, error) {
+	callParams := make(map[string]string)
+
+	re := regexp.MustCompile("commandMethod:(\\w+)")
+	match := re.FindStringSubmatch(response)
+	if match == nil {
+		return nil, errors.New(response)
+	}
+	method := match[1]
+
+	re = regexp.MustCompile("callName:(\\w+)")
+	match = re.FindStringSubmatch(response)
+	if match == nil {
+		return nil, errors.New(response)
+	}
+	name := match[1]
+
+	re = regexp.MustCompile("callPayload:([\":{},\\w]+)")
+	match = re.FindStringSubmatch(response)
+	if match == nil {
+		return nil, errors.New(response)
+	}
+	data := match[1]
+	json.Unmarshal([]byte(data), &callParams)
+
+	callParams["name"] = name
+	callParams["method"] = method
+
+	return callParams, nil
 }
