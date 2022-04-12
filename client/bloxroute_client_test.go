@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -34,21 +35,29 @@ func TestNewTxsWithFilter(t *testing.T) {
 	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
 	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
 	if certFile == "" || keyFile == "" {
-		assert.FailNow(t, "Please provide the bloXroute cert and key files path in the environment variable variable")
+		assert.FailNow(t, "Please provide the bloXroute cert     and key files path in the environment variable variable")
 	}
 
 	stopCh := make(chan struct{})
 	client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
+
+	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
+	if authorizationHeader == "" {
+		assert.FailNow(t, "Please provide  the authorization header in the AUTHORIZATION_HEADER  environment variables")
+	}
+	//client, err := NewBloXrouteClientToGateway("ws://localhost:28334", authorizationHeader, stopCh)
+
 	assert.NoError(t, err)
 
 	txCh := make(chan *types.Transaction)
 	// monitor transactions sent to PancakeSwap router
-	_, err = client.SubscribeNewTxs(nil, "To==0x10ED43C718714eb63d5aA57B78B54704E256024E", txCh)
+	filter := fmt.Sprintf("{to} == '%s'", "0x10ed43c718714eb63d5aa57b78b54704e256024e")
+	_, err = client.SubscribeNewTxs(nil, filter, txCh)
 	assert.NoError(t, err)
 
 	tx := <-txCh
 	assert.NotEmpty(t, tx.TxHash)
-	assert.Equal(t, tx.TxContents.To, "0x10ED43C718714eb63d5aA57B78B54704E256024E")
+	assert.Equal(t, tx.TxContents.To, "0x10ed43c718714eb63d5aa57b78b54704e256024e")
 	close(stopCh)
 }
 
@@ -104,9 +113,16 @@ func TestBlockNumberFromEthOnBlock(t *testing.T) {
 	}
 
 	stopCh := make(chan struct{})
-	client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
-	assert.NoError(t, err)
+	//client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
 
+	//stopCh := make(chan struct{})
+	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
+	if authorizationHeader == "" {
+		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
+	}
+	client, err := NewBloXrouteClientToGateway("ws://localhost:28334", authorizationHeader, stopCh)
+
+	assert.NoError(t, err)
 	respCh := make(chan *types.EthOnBlockResponse)
 	callParams := make([]map[string]string, 0)
 	callParams = append(callParams, map[string]string{"name": "blockNumber", "method": "eth_blockNumber"})
