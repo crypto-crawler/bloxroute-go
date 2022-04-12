@@ -20,7 +20,7 @@ func TestNewTxs(t *testing.T) {
 	assert.NoError(t, err)
 
 	txCh := make(chan *types.Transaction)
-	err = client.SubscribeNewTxs(nil, "", txCh)
+	_, err = client.SubscribeNewTxs(nil, "", txCh)
 	assert.NoError(t, err)
 
 	tx := <-txCh
@@ -42,7 +42,7 @@ func TestNewTxsWithFilter(t *testing.T) {
 
 	txCh := make(chan *types.Transaction)
 	// monitor transactions sent to PancakeSwap router
-	err = client.SubscribeNewTxs(nil, "To==0x10ED43C718714eb63d5aA57B78B54704E256024E", txCh)
+	_, err = client.SubscribeNewTxs(nil, "To==0x10ED43C718714eb63d5aA57B78B54704E256024E", txCh)
 	assert.NoError(t, err)
 
 	tx := <-txCh
@@ -63,7 +63,7 @@ func TestNewBlocks(t *testing.T) {
 	assert.NoError(t, err)
 
 	blockCh := make(chan *types.Block)
-	err = client.SubscribeNewBlocks(nil, blockCh)
+	_, err = client.SubscribeNewBlocks(nil, blockCh)
 	assert.NoError(t, err)
 
 	block := <-blockCh
@@ -85,7 +85,7 @@ func TestTxReceipts(t *testing.T) {
 	assert.NoError(t, err)
 
 	receiptsCh := make(chan *types.TxReceipt)
-	err = client.SubscribeTxReceipts(nil, receiptsCh)
+	_, err = client.SubscribeTxReceipts(nil, receiptsCh)
 	assert.NoError(t, err)
 
 	receipt := <-receiptsCh
@@ -109,7 +109,7 @@ func TestBlockNumberFromEthOnBlock(t *testing.T) {
 	respCh := make(chan *types.EthOnBlockResponse)
 	callParams := make([]map[string]string, 0)
 	callParams = append(callParams, map[string]string{"name": "blockNumber", "method": "eth_blockNumber"})
-	err = client.SubscribeEthOnBlock(nil, callParams, respCh)
+	_, err = client.SubscribeEthOnBlock(nil, callParams, respCh)
 	assert.NoError(t, err)
 
 	x := <-respCh

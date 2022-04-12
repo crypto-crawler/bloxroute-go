@@ -37,7 +37,7 @@ func TestStartMonitorTransaction(t *testing.T) {
 	}
 
 	txCh := make(chan *bloxroute_types.Transaction)
-	err = bloXrouteClient.SubscribePendingTxs([]string{"tx_hash", "tx_contents", "raw_tx"}, "", txCh)
+	_, err = bloXrouteClient.SubscribePendingTxs([]string{"tx_hash", "tx_contents", "raw_tx"}, "", txCh)
 	assert.NoError(t, err)
 
 	txJson := <-txCh

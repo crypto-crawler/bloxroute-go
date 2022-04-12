@@ -91,7 +91,8 @@ func (clientExt *BloXrouteClientExtended) SubscribePairReserves(pairs []common.A
 		}
 	}()
 
-	return clientExt.client.SubscribeEthOnBlock(nil, callParams, outChTmp)
+	_, err := clientExt.client.SubscribeEthOnBlock(nil, callParams, outChTmp)
+	return err
 }
 
 // Monitor tokens' balance of specified users.
@@ -112,7 +113,7 @@ func (clientExt *BloXrouteClientExtended) SubscribeBalance(users []common.Addres
 		}
 	}
 
-	err := clientExt.client.SubscribeEthOnBlock(nil, callParams, clientExt.ethOnBlockChForBalance)
+	_, err := clientExt.client.SubscribeEthOnBlock(nil, callParams, clientExt.ethOnBlockChForBalance)
 	if err != nil {
 		return nil, err
 	}

@@ -57,7 +57,7 @@ func main() {
 
 	txCh := make(chan *types.Block)
 
-	err = bloXrouteClient.SubscribeBdnBlocks([]string{"hash"}, txCh)
+	_, err = bloXrouteClient.SubscribeBdnBlocks([]string{"hash"}, txCh)
 	if err != nil {
 		log.Fatal(err)
 	}

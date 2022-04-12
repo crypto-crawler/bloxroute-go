@@ -57,7 +57,7 @@ func main() {
 
 	newTxsCh := make(chan *types.Transaction)
 
-	err = bloXrouteClient.SubscribeNewTxs(nil, "", newTxsCh)
+	_, err = bloXrouteClient.SubscribeNewTxs(nil, "", newTxsCh)
 	if err != nil {
 		log.Fatal(err)
 	}

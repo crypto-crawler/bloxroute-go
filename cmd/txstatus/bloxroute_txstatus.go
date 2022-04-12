@@ -41,7 +41,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = bloXrouteClient.SubscribeNewTxs([]string{"tx_hash", "raw_tx"}, "", pendingTxCh)
+		_, err = bloXrouteClient.SubscribeNewTxs([]string{"tx_hash", "raw_tx"}, "", pendingTxCh)
 		if err != nil {
 			log.Fatal(err)
 		}

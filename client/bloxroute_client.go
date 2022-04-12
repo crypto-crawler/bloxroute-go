@@ -31,15 +31,25 @@ type BloXrouteClient struct {
 	subscriptionResponseCh chan types.SubscriptionResponse
 	sendTxChannel          chan common.Hash
 	pongCh                 chan pongMsg
-	// key is the subscription ID, value is user provided  output channel
-	newTxsChannels     map[string]chan<- *types.Transaction        // output channels for `newTxs`
-	pendingTxsChannels map[string]chan<- *types.Transaction        // output channels for `pendingTxs`
-	newBlocksChannels  map[string]chan<- *types.Block              // output channels for `newBlocks`
-	bdnBlocksChannels  map[string]chan<- *types.Block              // output channels for `bdnBlocks`
-	txReceiptsChannels map[string]chan<- *types.TxReceipt          // output channels for `txReceipts`
-	ethOnBlockChannels map[string]chan<- *types.EthOnBlockResponse // output channels for `ethOnBlock`
-	rawChannels        map[string]chan<- string                    // output channels for SubscribeRaw()
+	newTxsCh               chan<- *types.Transaction        // output channel for `newTxs`
+	pendingTxsCh           chan<- *types.Transaction        // output channel for `pendingTxs`
+	newBlocksCh            chan<- *types.Block              // output channel for `newBlocks`
+	bdnBlocksCh            chan<- *types.Block              // output channel for `bdnBlocks`
+	txReceiptsCh           chan<- *types.TxReceipt          // output channel for `txReceipts`
+	ethOnBlockCh           chan<- *types.EthOnBlockResponse // output channel for `ethOnBlock`
+	rawChannel             chan<- string                    // output channel for SubscribeRaw()
 }
+
+// stream name
+const (
+	newTxs     = "newTxs"
+	pendingTxs = "pendingTxs"
+	newBlocks  = "newBlocks"
+	bdnBlocks  = "bdnBlocks"
+	txReceipts = "txReceipts"
+	ethOnBlock = "ethOnBlock"
+	rawString  = "rawString" // for SubscribeRaw()
+)
 
 // Create a bloXroute websocket client connected to bloXroute cloud.
 //
@@ -79,16 +89,14 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 		subscriptionResponseCh: make(chan types.SubscriptionResponse),
 		sendTxChannel:          make(chan common.Hash),
 		pongCh:                 make(chan pongMsg),
-		newTxsChannels:         make(map[string]chan<- *types.Transaction),
-		pendingTxsChannels:     make(map[string]chan<- *types.Transaction),
-		newBlocksChannels:      make(map[string]chan<- *types.Block),
-		bdnBlocksChannels:      make(map[string]chan<- *types.Block),
-		txReceiptsChannels:     make(map[string]chan<- *types.TxReceipt),
-		ethOnBlockChannels:     make(map[string]chan<- *types.EthOnBlockResponse),
-		rawChannels:            make(map[string]chan<- string),
 	}
 
 	go client.run()
+
+	// test the connection
+	if _, err = client.Ping(); err != nil {
+		return nil, err
+	}
 
 	//  Send a ping every 5 seconds to keep the WebSocket connection alive
 	go func() {
@@ -105,11 +113,6 @@ func NewBloXrouteClientToCloud(network string, certFile string, keyFile string, 
 			}
 		}
 	}()
-
-	// test the connection
-	if _, err = client.Ping(); err != nil {
-		return nil, err
-	}
 
 	return client, nil
 }
@@ -134,16 +137,14 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		subscriptionResponseCh: make(chan types.SubscriptionResponse),
 		sendTxChannel:          make(chan common.Hash),
 		pongCh:                 make(chan pongMsg),
-		newTxsChannels:         make(map[string]chan<- *types.Transaction),
-		pendingTxsChannels:     make(map[string]chan<- *types.Transaction),
-		newBlocksChannels:      make(map[string]chan<- *types.Block),
-		bdnBlocksChannels:      make(map[string]chan<- *types.Block),
-		txReceiptsChannels:     make(map[string]chan<- *types.TxReceipt),
-		ethOnBlockChannels:     make(map[string]chan<- *types.EthOnBlockResponse),
-		rawChannels:            make(map[string]chan<- string),
 	}
 
 	go client.run()
+
+	// test the connection
+	if _, err = client.Ping(); err != nil {
+		return nil, err
+	}
 
 	//  Send a ping every 5 seconds to keep the WebSocket connection alive
 	go func() {
@@ -161,35 +162,31 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		}
 	}()
 
-	// test the connection
-	if _, err = client.Ping(); err != nil {
-		return nil, err
-	}
-
 	return client, nil
 }
 
 // Subscribe to the `newTxs` stream.
 // See https://docs.bloxroute.com/streams/newtxs-and-pendingtxs
-func (c *BloXrouteClient) SubscribeNewTxs(include []string, filters string, outCh chan<- *types.Transaction) error {
-	return c.subscribeTransactions("newTxs", include, filters, outCh)
+func (c *BloXrouteClient) SubscribeNewTxs(include []string, filters string, outCh chan<- *types.Transaction) (string, error) {
+	return c.subscribeTransactions(newTxs, include, filters, outCh)
 }
 
 // Subscribe to the `pendingTxs` stream.
 // See https://docs.bloxroute.com/streams/newtxs-and-pendingtxs
-func (c *BloXrouteClient) SubscribePendingTxs(include []string, filters string, outCh chan<- *types.Transaction) error {
-	return c.subscribeTransactions("pendingTxs", include, filters, outCh)
+func (c *BloXrouteClient) SubscribePendingTxs(include []string, filters string, outCh chan<- *types.Transaction) (string, error) {
+	return c.subscribeTransactions(pendingTxs, include, filters, outCh)
 }
 
 // Subscribe to the `newBlocks` stream.
 // See https://docs.bloxroute.com/streams/newblock-stream
-func (c *BloXrouteClient) SubscribeNewBlocks(include []string, outCh chan<- *types.Block) error {
-	return c.subscribeBlocks("newBlocks", include, outCh)
+func (c *BloXrouteClient) SubscribeNewBlocks(include []string, outCh chan<- *types.Block) (string, error) {
+	return c.subscribeBlocks(newBlocks, include, outCh)
 }
 
 // Subscribe to the `txReceipts` stream.
 // See https://docs.bloxroute.com/streams/txreceipts
-func (c *BloXrouteClient) SubscribeTxReceipts(include []string, outCh chan<- *types.TxReceipt) error {
+func (c *BloXrouteClient) SubscribeTxReceipts(include []string, outCh chan<- *types.TxReceipt) (string, error) {
+	c.txReceiptsCh = outCh
 	if len(include) == 0 {
 		// empty means all
 		include = []string{
@@ -207,38 +204,34 @@ func (c *BloXrouteClient) SubscribeTxReceipts(include []string, outCh chan<- *ty
 	}
 
 	params := make([]interface{}, 0)
-	params = append(params, "txReceipts")
+	params = append(params, txReceipts)
 	if len(include) > 0 {
 		m := make(map[string][]string)
 		m["include"] = include
 		params = append(params, m)
 	}
 
-	subscriptionID, err := c.subscribe(params)
-	if err != nil {
-		return err
-	}
-	c.txReceiptsChannels[subscriptionID] = outCh
-
-	return nil
+	return c.subscribe(params)
 }
 
 // Subscribe to the `bdnBlocks` stream.
 // See https://docs.bloxroute.com/streams/bdnblocks
-func (c *BloXrouteClient) SubscribeBdnBlocks(include []string, outCh chan<- *types.Block) error {
-	return c.subscribeBlocks("bdnBlocks", include, outCh)
+func (c *BloXrouteClient) SubscribeBdnBlocks(include []string, outCh chan<- *types.Block) (string, error) {
+	return c.subscribeBlocks(bdnBlocks, include, outCh)
 }
 
 // Subscribe to the `ethOnBlock` stream.
 // See https://docs.bloxroute.com/streams/onblock-event-stream
-func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map[string]string, outCh chan<- *types.EthOnBlockResponse) error {
+func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map[string]string, outCh chan<- *types.EthOnBlockResponse) (string, error) {
+	c.ethOnBlockCh = outCh
+
 	if len(include) == 0 {
 		// empty means all
 		include = []string{"name", "response", "block_height", "tag"}
 	}
 
 	params := make([]interface{}, 0)
-	params = append(params, "ethOnBlock")
+	params = append(params, ethOnBlock)
 	{
 		m := make(map[string]interface{})
 		if len(include) > 0 {
@@ -250,21 +243,14 @@ func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map
 		params = append(params, m)
 	}
 
-	subscriptionID, err := c.subscribe(params)
-	if err != nil {
-		return err
-	}
-
-	c.ethOnBlockChannels[subscriptionID] = outCh
-
-	return nil
+	return c.subscribe(params)
 }
 
 // SubscribeRaw() send a raw subscription request to the server.
 // This is a low-level API and should be used only if you know what you are doing.
 // The first element of params must be the name of the stream.
 func (c *BloXrouteClient) SubscribeRaw(subRequest string, outCh chan<- string) (string, error) {
-	streamName := ""
+	c.rawChannel = outCh
 	{
 		jsonObj := make(map[string]interface{})
 		err := json.Unmarshal([]byte(subRequest), &jsonObj)
@@ -275,7 +261,7 @@ func (c *BloXrouteClient) SubscribeRaw(subRequest string, outCh chan<- string) (
 		if !ok {
 			return "", fmt.Errorf("params must be an array")
 		}
-		streamName, ok = params[0].(string)
+		_, ok = params[0].(string)
 		if !ok {
 			return "", fmt.Errorf("The first element of params must be the name of the stream.")
 		}
@@ -286,8 +272,7 @@ func (c *BloXrouteClient) SubscribeRaw(subRequest string, outCh chan<- string) (
 		return "", err
 	}
 
-	c.idToStreamNameMap[subscriptionID] = streamName
-	c.rawChannels[subscriptionID] = outCh
+	c.idToStreamNameMap[subscriptionID] = rawString
 	return subscriptionID, nil
 }
 
@@ -304,7 +289,7 @@ func (client *BloXrouteClient) SendTransaction(transaction []byte, nonceMonitori
 	// wait for response
 	select {
 	case <-time.After(3 * time.Second):
-		return common.Hash{}, errors.New("timeout")
+		return common.Hash{}, errors.New("SendTransaction timeout")
 	case txHash := <-client.sendTxChannel:
 		return txHash, nil
 	}
@@ -329,33 +314,20 @@ func (c *BloXrouteClient) Unsubscribe(subscriptionID string) error {
 	delete(c.idToStreamNameMap, subscriptionID)
 	delete(c.idToCommandMap, subscriptionID)
 
-	if c.rawChannels[subscriptionID] != nil {
-		delete(c.rawChannels, subscriptionID)
-		return nil
-	}
-
-	switch streamName {
-	case "newTxs":
-		delete(c.newTxsChannels, subscriptionID)
-	case "pendingTxs":
-		delete(c.pendingTxsChannels, subscriptionID)
-	case "newBlocks":
-		delete(c.newBlocksChannels, subscriptionID)
-	case "bdnBlocks":
-		delete(c.bdnBlocksChannels, subscriptionID)
-	case "txReceipts":
-		delete(c.txReceiptsChannels, subscriptionID)
-	case "ethOnBlock":
-		delete(c.ethOnBlockChannels, subscriptionID)
-	default:
-		log.Panicf("Unknown stream name: %s", streamName)
-	}
-
 	return nil
 }
 
 // Subscribe to `newTxs` or `pendingTxs` stream.
-func (c *BloXrouteClient) subscribeTransactions(streamName string, include []string, filters string, outCh chan<- *types.Transaction) error {
+func (c *BloXrouteClient) subscribeTransactions(streamName string, include []string, filters string, outCh chan<- *types.Transaction) (string, error) {
+	switch streamName {
+	case newTxs:
+		c.newTxsCh = outCh
+	case pendingTxs:
+		c.pendingTxsCh = outCh
+	default:
+		return "", fmt.Errorf("unknown stream name: %s", streamName)
+	}
+
 	if len(include) == 0 {
 		// empty means all
 		include = []string{"tx_hash", "tx_contents"}
@@ -376,23 +348,20 @@ func (c *BloXrouteClient) subscribeTransactions(streamName string, include []str
 		}
 	}
 
-	subscriptionID, err := c.subscribe(params)
-	if err != nil {
-		return err
-	}
-	if streamName == "newTxs" {
-		c.newTxsChannels[subscriptionID] = outCh
-	} else if streamName == "pendingTxs" {
-		c.pendingTxsChannels[subscriptionID] = outCh
-	} else {
-		log.Panicf("invalid stream name: %s", streamName)
-	}
-
-	return nil
+	return c.subscribe(params)
 }
 
 // Subscribe to `newBlocks` or `bdnBlocks` stream.
-func (c *BloXrouteClient) subscribeBlocks(streamName string, include []string, outCh chan<- *types.Block) error {
+func (c *BloXrouteClient) subscribeBlocks(streamName string, include []string, outCh chan<- *types.Block) (string, error) {
+	switch streamName {
+	case newBlocks:
+		c.newBlocksCh = outCh
+	case bdnBlocks:
+		c.bdnBlocksCh = outCh
+	default:
+		return "", fmt.Errorf("unknown stream name: %s", streamName)
+	}
+
 	if len(include) == 0 {
 		// empty means all
 		include = []string{"hash", "header", "transactions", "uncles"}
@@ -406,19 +375,7 @@ func (c *BloXrouteClient) subscribeBlocks(streamName string, include []string, o
 		params = append(params, m)
 	}
 
-	subscriptionID, err := c.subscribe(params)
-	if err != nil {
-		return err
-	}
-	if streamName == "newBlocks" {
-		c.newBlocksChannels[subscriptionID] = outCh
-	} else if streamName == "bdnBlocks" {
-		c.bdnBlocksChannels[subscriptionID] = outCh
-	} else {
-		log.Panicf("invalid stream name: %s", streamName)
-	}
-
-	return nil
+	return c.subscribe(params)
 }
 
 // subscribe() sends a subscription request and returns the subscription ID.
@@ -439,8 +396,10 @@ func (c *BloXrouteClient) subscribe(params []interface{}) (string, error) {
 func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
 	// This function is always called sequentially.
 	c.mu.Lock()
+	defer c.mu.Unlock()
+	log.Println(subRequest)
+
 	err := c.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
-	c.mu.Unlock()
 	if err != nil {
 		return "", err
 	}
@@ -448,7 +407,7 @@ func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
 	// wait for subscription confirmation
 	select {
 	case <-time.After(3 * time.Second):
-		return "", errors.New("timeout")
+		return "", fmt.Errorf("timeout %s", subRequest)
 	case resp := <-c.subscriptionResponseCh:
 		subscriptionID := resp.Result
 		c.idToCommandMap[subscriptionID] = subRequest
@@ -469,7 +428,7 @@ func (c *BloXrouteClient) Ping() (time.Time, error) {
 	// wait for pong
 	select {
 	case <-time.After(3 * time.Second):
-		return time.Now(), errors.New("timeout")
+		return time.Now(), errors.New("ping timeout")
 	case resp := <-c.pongCh:
 		return time.Parse("2006-01-02 15:04:05.99", resp.Result.Pong)
 	}
@@ -497,9 +456,6 @@ func (c *BloXrouteClient) handleTaskDisabledEvent(event *types.WebsocketMsg[type
 
 	c.idToStreamNameMap[newSubscriptionID] = c.idToStreamNameMap[subscriptionID]
 	delete(c.idToStreamNameMap, subscriptionID)
-
-	c.ethOnBlockChannels[newSubscriptionID] = c.ethOnBlockChannels[subscriptionID]
-	delete(c.ethOnBlockChannels, subscriptionID)
 
 	return nil
 }
@@ -619,55 +575,22 @@ func (c *BloXrouteClient) run() error {
 				log.Panicf("Bug: no stream name for subscription ID %s", subscriptionID)
 			}
 
-			if c.rawChannels[subscriptionID] != nil {
-				c.rawChannels[subscriptionID] <- string(nextNotification)
-				break
-			}
-
 			err = nil
 			switch streamName {
-			case "newTxs":
-				outCh := c.newTxsChannels[subscriptionID]
-				if outCh == nil {
-					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
-				} else {
-					err = processMsg(nextNotification, outCh)
-				}
-			case "pendingTxs":
-				outCh := c.pendingTxsChannels[subscriptionID]
-				if outCh == nil {
-					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
-				} else {
-					err = processMsg(nextNotification, outCh)
-				}
-			case "newBlocks":
-				outCh := c.newBlocksChannels[subscriptionID]
-				if outCh == nil {
-					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
-				} else {
-					err = processMsg(nextNotification, outCh)
-				}
-			case "bdnBlocks":
-				outCh := c.bdnBlocksChannels[subscriptionID]
-				if outCh == nil {
-					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
-				} else {
-					err = processMsg(nextNotification, outCh)
-				}
-			case "txReceipts":
-				outCh := c.txReceiptsChannels[subscriptionID]
-				if outCh == nil {
-					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
-				} else {
-					err = processMsg(nextNotification, outCh)
-				}
-			case "ethOnBlock":
-				outCh := c.ethOnBlockChannels[subscriptionID]
-				if outCh == nil {
-					log.Printf("Bug: no output channel for subscription ID %s", subscriptionID)
-				} else {
-					err = processMsg(nextNotification, outCh)
-				}
+			case newTxs:
+				err = processMsg(nextNotification, c.newTxsCh)
+			case pendingTxs:
+				err = processMsg(nextNotification, c.pendingTxsCh)
+			case newBlocks:
+				err = processMsg(nextNotification, c.newBlocksCh)
+			case bdnBlocks:
+				err = processMsg(nextNotification, c.bdnBlocksCh)
+			case txReceipts:
+				err = processMsg(nextNotification, c.txReceiptsCh)
+			case ethOnBlock:
+				err = processMsg(nextNotification, c.ethOnBlockCh)
+			case rawString:
+				c.rawChannel <- string(nextNotification)
 			default:
 				log.Panicf("Unknown stream name: %s", streamName)
 			}

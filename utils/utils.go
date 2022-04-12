@@ -73,7 +73,8 @@ func SubscribeWalletBalance(bloXrouteClient *client.BloXrouteClient, addresses [
 
 		}
 	}()
-	return bloXrouteClient.SubscribeEthOnBlock(nil, callParams, outChTmp)
+	_, err := bloXrouteClient.SubscribeEthOnBlock(nil, callParams, outChTmp)
+	return err
 }
 
 func buildBalanceInputData(address common.Address) string {
