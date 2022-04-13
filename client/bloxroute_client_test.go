@@ -45,7 +45,7 @@ func TestNewTxsWithFilter(t *testing.T) {
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide  the authorization header in the AUTHORIZATION_HEADER  environment variables")
 	}
-	//client, err := NewBloXrouteClientToGateway("ws://localhost:28334", authorizationHeader, stopCh)
+	// client, err := NewBloXrouteClientToGateway("ws://localhost:28334", authorizationHeader, stopCh)
 
 	assert.NoError(t, err)
 
@@ -113,9 +113,9 @@ func TestBlockNumberFromEthOnBlock(t *testing.T) {
 	}
 
 	stopCh := make(chan struct{})
-	//client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
+	// client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
 
-	//stopCh := make(chan struct{})
+	// stopCh := make(chan struct{})
 	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
@@ -213,7 +213,7 @@ func TestClientSendTransaction(t *testing.T) {
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
 	}
-	//wss://api.blxrbdn.com/ws
+	// wss://api.blxrbdn.com/ws
 	url := "ws://localhost:28334"
 	client, err := NewBloXrouteClientToGateway(url, authorizationHeader, stopCh)
 	assert.NoError(t, err)
