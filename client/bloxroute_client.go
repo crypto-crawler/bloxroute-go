@@ -146,22 +146,6 @@ func NewBloXrouteClientToGateway(url string, authorizationHeader string, stopCh 
 		return nil, err
 	}
 
-	//  Send a ping every 5 seconds to keep the WebSocket connection alive
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		for {
-			select {
-			case <-stopCh:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				if _, err := client.Ping(); err != nil {
-					log.Fatal(err)
-				}
-			}
-		}
-	}()
-
 	return client, nil
 }
 
@@ -397,7 +381,7 @@ func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
 	// This function is always called sequentially.
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	//log.Println(subRequest)
+	// log.Println(subRequest)
 
 	err := c.conn.WriteMessage(websocket.TextMessage, []byte(subRequest))
 	if err != nil {
