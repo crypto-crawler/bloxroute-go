@@ -390,7 +390,7 @@ func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
 
 	// wait for subscription confirmation
 	select {
-	case <-time.After(3 * time.Second):
+	case <-time.After(6 * time.Second):
 		return "", fmt.Errorf("timeout %s", subRequest)
 	case resp := <-c.subscriptionResponseCh:
 		subscriptionID := resp.Result
