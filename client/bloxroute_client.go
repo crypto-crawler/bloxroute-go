@@ -320,16 +320,14 @@ func (c *BloXrouteClient) subscribeTransactions(streamName string, include []str
 	params := make([]interface{}, 0)
 	{
 		params = append(params, streamName)
+		m := make(map[string]interface{})
 		if len(include) > 0 {
-			m := make(map[string][]string)
 			m["include"] = include
-			params = append(params, m)
 		}
 		if len(filters) > 0 {
-			m := make(map[string]string)
 			m["filters"] = filters
-			params = append(params, m)
 		}
+		params = append(params, m)
 	}
 
 	return c.subscribe(params)

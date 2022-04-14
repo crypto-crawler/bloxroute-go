@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/crypto-crawler/bloxroute-go/types"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
@@ -55,9 +56,23 @@ func TestNewTxsWithFilter(t *testing.T) {
 	_, err = client.SubscribeNewTxs(nil, filter, txCh)
 	assert.NoError(t, err)
 
+	go func() {
+		for {
+			select {
+			case <-stopCh:
+				return
+			case tx := <-txCh:
+				assert.NotEmpty(t, tx.TxHash)
+				assert.Equal(t, tx.TxContents.To, "0x10ed43c718714eb63d5aa57b78b54704e256024e")
+			}
+		}
+	}()
+
 	tx := <-txCh
 	assert.NotEmpty(t, tx.TxHash)
 	assert.Equal(t, tx.TxContents.To, "0x10ed43c718714eb63d5aa57b78b54704e256024e")
+	time.Sleep(time.Second * 5)
+
 	close(stopCh)
 }
 
