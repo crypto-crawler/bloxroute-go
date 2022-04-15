@@ -73,6 +73,8 @@ func main() {
 			if _, err := bloXrouteClient.Ping(); err != nil {
 				log.Fatal(err)
 			}
+		case block := <-txCh:
+			log.Printf("Received block: %s", block.Hash)
 		}
 	}
 }
