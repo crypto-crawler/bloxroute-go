@@ -388,7 +388,7 @@ func (c *BloXrouteClient) sendCommand(subRequest string) (string, error) {
 
 	// wait for subscription confirmation
 	select {
-	case <-time.After(30 * time.Second):
+	case <-time.After(3 * time.Second):
 		return "", fmt.Errorf("timeout %s", subRequest)
 	case resp := <-c.subscriptionResponseCh:
 		subscriptionID := resp.Result
@@ -424,20 +424,19 @@ func (c *BloXrouteClient) close() error {
 }
 
 func (c *BloXrouteClient) handleTaskDisabledEvent(event *types.WebsocketMsg[types.EthOnBlockResponse]) error {
-	subscriptionID := event.Params.Subscription
-	subRequest := c.idToCommandMap[subscriptionID]
-	if subRequest == "" {
-		log.Panicf("Bug: subscription ID %s not found in idToCommandMap", subscriptionID)
+	callParams, err := extractTaskDisabledEvent(event.Params.Result.Response)
+	if err != nil {
+		return err
 	}
-
 	// resend
-	newSubscriptionID, err := c.sendCommand(subRequest)
+	newSubscriptionID, err := c.SubscribeEthOnBlock(nil, []map[string]string{callParams}, c.ethOnBlockCh)
 	if err != nil {
 		return err
 	}
 
-	c.idToStreamNameMap[newSubscriptionID] = c.idToStreamNameMap[subscriptionID]
-	delete(c.idToStreamNameMap, subscriptionID)
+	oldSubscriptionID := event.Params.Subscription
+	c.idToStreamNameMap[newSubscriptionID] = c.idToStreamNameMap[oldSubscriptionID]
+	delete(c.idToStreamNameMap, oldSubscriptionID)
 
 	return nil
 }
@@ -544,7 +543,10 @@ func (c *BloXrouteClient) run() error {
 							log.Panicf("Bug: failed to unmashal TaskDisabledEvent %s", string(nextNotification))
 						}
 
-						c.handleTaskDisabledEvent(&disableEvent)
+						err = c.handleTaskDisabledEvent(&disableEvent)
+						if err != nil {
+							log.Fatal(err)
+						}
 						break
 					}
 				}
