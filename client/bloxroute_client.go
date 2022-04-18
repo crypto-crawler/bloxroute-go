@@ -441,7 +441,6 @@ func (c *BloXrouteClient) handleTaskDisabledEvent(event *types.WebsocketMsg[type
 	}
 
 	c.idToStreamNameMap[newSubscriptionID] = c.idToStreamNameMap[oldSubscriptionID]
-	delete(c.idToStreamNameMap, oldSubscriptionID)
 
 	return nil
 }
