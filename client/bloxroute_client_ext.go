@@ -196,7 +196,7 @@ func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, bloc
 	bytes = bytes[64:]
 
 	result := make([]*types.PairReserves, length)
-	for i := 0; i < length; i += 2 {
+	for i := 0; i < length; i++ {
 		result[i] = &types.PairReserves{
 			Pair:        pairs[i],
 			Reserve0:    big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32]),
