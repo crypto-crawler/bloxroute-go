@@ -543,10 +543,12 @@ func (c *BloXrouteClient) run() error {
 							log.Panicf("Bug: failed to unmashal TaskDisabledEvent %s", string(nextNotification))
 						}
 
-						err = c.handleTaskDisabledEvent(&disableEvent)
-						if err != nil {
-							log.Fatal(err)
-						}
+						// TODO: TaskDisabledEvent doesn't mean this subscription is disabled,
+						// because new data are still coming in after the TaskDisabledEvent.
+						// err = c.handleTaskDisabledEvent(&disableEvent)
+						// if err != nil {
+						// 	log.Fatal(err)
+						// }
 						break
 					}
 				}
