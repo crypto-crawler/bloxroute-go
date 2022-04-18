@@ -424,6 +424,12 @@ func (c *BloXrouteClient) close() error {
 }
 
 func (c *BloXrouteClient) handleTaskDisabledEvent(event *types.WebsocketMsg[types.EthOnBlockResponse]) error {
+	oldSubscriptionID := event.Params.Subscription
+	err := c.Unsubscribe(oldSubscriptionID)
+	if err != nil {
+		log.Println(err)
+	}
+
 	callParams, err := extractTaskDisabledEvent(event.Params.Result.Response)
 	if err != nil {
 		return err
@@ -434,7 +440,6 @@ func (c *BloXrouteClient) handleTaskDisabledEvent(event *types.WebsocketMsg[type
 		return err
 	}
 
-	oldSubscriptionID := event.Params.Subscription
 	c.idToStreamNameMap[newSubscriptionID] = c.idToStreamNameMap[oldSubscriptionID]
 	delete(c.idToStreamNameMap, oldSubscriptionID)
 
@@ -543,12 +548,10 @@ func (c *BloXrouteClient) run() error {
 							log.Panicf("Bug: failed to unmashal TaskDisabledEvent %s", string(nextNotification))
 						}
 
-						// TODO: TaskDisabledEvent doesn't mean this subscription is disabled,
-						// because new data are still coming in after the TaskDisabledEvent.
-						// err = c.handleTaskDisabledEvent(&disableEvent)
-						// if err != nil {
-						// 	log.Fatal(err)
-						// }
+						err = c.handleTaskDisabledEvent(&disableEvent)
+						if err != nil {
+							log.Println(err)
+						}
 						break
 					}
 				}
