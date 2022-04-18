@@ -425,10 +425,10 @@ func (c *BloXrouteClient) close() error {
 
 func (c *BloXrouteClient) handleTaskDisabledEvent(event *types.WebsocketMsg[types.EthOnBlockResponse]) error {
 	oldSubscriptionID := event.Params.Subscription
-	err := c.Unsubscribe(oldSubscriptionID)
-	if err != nil {
-		log.Println(err)
-	}
+	// err := c.Unsubscribe(oldSubscriptionID)
+	// if err != nil {
+	// 	log.Println(err)
+	// }
 
 	callParams, err := extractTaskDisabledEvent(event.Params.Result.Response)
 	if err != nil {
