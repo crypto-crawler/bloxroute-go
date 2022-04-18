@@ -1,8 +1,10 @@
 package client
 
 import (
+	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
 
@@ -59,7 +61,7 @@ func NewBloXrouteClientExtended(client *BloXrouteClient, stopCh <-chan struct{})
 // Monitor the reserves of of given trading pairs on PancakeSwap/Uniswap.
 //
 // Please put as many addresses as possible to the pairs parameter and call this function in batch.
-func (clientExt *BloXrouteClientExtended) SubscribePairReserves(pairs []common.Address, outCh chan<- *types.PairReserves) error {
+func (clientExt *BloXrouteClientExtended) SubscribePairReservesDeprecated(pairs []common.Address, outCh chan<- *types.PairReserves) error {
 	outChTmp := make(chan *types.EthOnBlockResponse)
 	callParams := make([]map[string]string, 0)
 	for _, pair := range pairs {
@@ -79,7 +81,7 @@ func (clientExt *BloXrouteClientExtended) SubscribePairReserves(pairs []common.A
 				if !ok {
 					panic(resp)
 				}
-				pairReserve, err := decodeReturnedDataOfGetReserves(pair, resp.Response, blockNumber.Int64())
+				pairReserve, err := decodeReturnedDataOfGetReservesDeprecated(pair, resp.Response, blockNumber.Int64())
 				if err == nil {
 					hash := pairReserve.Hash()
 					if !visited[hash] {
@@ -92,6 +94,48 @@ func (clientExt *BloXrouteClientExtended) SubscribePairReserves(pairs []common.A
 	}()
 
 	_, err := clientExt.client.SubscribeEthOnBlock(nil, callParams, outChTmp)
+	return err
+}
+
+func (clientExt *BloXrouteClientExtended) SubscribePairReserves(pairs []common.Address, outCh chan<- *types.PairReserves) error {
+	outChTmp := make(chan *types.EthOnBlockResponse)
+	callParam := map[string]string{"method": "eth_call", "to": "0xAb3A7264ca5B849288fe6a42aBBD4d559552835F"}
+	h := md5.New()
+	var sb strings.Builder
+	// see https://adibas03.github.io/online-ethereum-abi-encoder-decoder/#/encode
+	sb.WriteString("0x407a4b080000000000000000000000000000000000000000000000000000000000000020")
+	sb.WriteString(fmt.Sprintf("%064x", len(pairs)))
+	for _, pair := range pairs {
+		io.WriteString(h, pair.Hex())
+		// padding
+		sb.WriteString("000000000000000000000000")
+		sb.WriteString(hex.EncodeToString(pair.Bytes()))
+	}
+	name := fmt.Sprintf("pairs_0x%x", h.Sum(nil))
+	callParam["name"] = name
+	callParam["data"] = sb.String()
+
+	go func() {
+		for {
+			select {
+			case <-clientExt.stopCh:
+				return
+			case resp := <-outChTmp:
+				blockNumber, ok := big.NewInt(0).SetString(resp.BlockHeight, 0)
+				if !ok {
+					panic(resp)
+				}
+				arr, err := decodeReturnedDataOfGetReserves(pairs, resp.Response, blockNumber.Int64())
+				if err == nil {
+					for _, pairReserve := range arr {
+						outCh <- pairReserve
+					}
+				}
+			}
+		}
+	}()
+
+	_, err := clientExt.client.SubscribeEthOnBlock(nil, []map[string]string{callParam}, outChTmp)
 	return err
 }
 
@@ -121,7 +165,7 @@ func (clientExt *BloXrouteClientExtended) SubscribeBalance(users []common.Addres
 }
 
 // Decode the data of ethOnBlock of GetReserves()
-func decodeReturnedDataOfGetReserves(pair common.Address, hexStr string, blockNumber int64) (*types.PairReserves, error) {
+func decodeReturnedDataOfGetReservesDeprecated(pair common.Address, hexStr string, blockNumber int64) (*types.PairReserves, error) {
 	bytes, err := hex.DecodeString(hexStr[2:])
 	if err != nil {
 		return nil, err
@@ -135,6 +179,32 @@ func decodeReturnedDataOfGetReserves(pair common.Address, hexStr string, blockNu
 		BlockNumber:        blockNumber,
 	}
 	return pairReserve, nil
+}
+
+func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, blockNumber int64) ([]*types.PairReserves, error) {
+	if hexStr[:66] != "0x0000000000000000000000000000000000000000000000000000000000000020" {
+		panic("Bug: not possible")
+	}
+	bytes, err := hex.DecodeString(hexStr[2:])
+	if err != nil {
+		return nil, err
+	}
+	length := int(big.NewInt(0).SetBytes(bytes[32:64]).Int64())
+	if length != len(pairs) {
+		panic("Bug: not possible")
+	}
+	bytes = bytes[64:]
+
+	result := make([]*types.PairReserves, length)
+	for i := 0; i < length; i += 2 {
+		result[i] = &types.PairReserves{
+			Pair:        pairs[i],
+			Reserve0:    big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32]),
+			Reserve1:    big.NewInt(0).SetBytes(bytes[(i+1)*32 : (i+2)*32]),
+			BlockNumber: blockNumber,
+		}
+	}
+	return result, nil
 }
 
 func buildBalanceInputData(owner common.Address) string {
