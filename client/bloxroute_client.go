@@ -547,10 +547,12 @@ func (c *BloXrouteClient) run() error {
 							log.Panicf("Bug: failed to unmashal TaskDisabledEvent %s", string(nextNotification))
 						}
 
-						err = c.handleTaskDisabledEvent(&disableEvent)
-						if err != nil {
-							log.Println(err)
-						}
+						go func() {
+							err = c.handleTaskDisabledEvent(&disableEvent)
+							if err != nil {
+								log.Println(err)
+							}
+						}()
 						break
 					}
 				}
