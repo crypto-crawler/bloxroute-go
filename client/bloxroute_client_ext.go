@@ -139,6 +139,48 @@ func (clientExt *BloXrouteClientExtended) SubscribePairReserves(pairs []common.A
 	return err
 }
 
+func (clientExt *BloXrouteClientExtended) SubscribePairReservesForBenchmark(pairs []common.Address, outCh chan<- *types.PairReserves) error {
+	outChTmp := make(chan *types.EthOnBlockResponse)
+	callParam := map[string]string{"method": "eth_call", "to": "0x45974B68d81Be55E71F7ACD5c1378a9d52CF02Be"}
+	h := md5.New()
+	var sb strings.Builder
+	// see https://adibas03.github.io/online-ethereum-abi-encoder-decoder/#/encode
+	sb.WriteString("0xef7b22d90000000000000000000000000000000000000000000000000000000000000020")
+	sb.WriteString(fmt.Sprintf("%064x", len(pairs)))
+	for _, pair := range pairs {
+		io.WriteString(h, pair.Hex())
+		// padding
+		sb.WriteString("000000000000000000000000")
+		sb.WriteString(hex.EncodeToString(pair.Bytes()))
+	}
+	name := fmt.Sprintf("pairs_0x%x", h.Sum(nil))
+	callParam["name"] = name
+	callParam["data"] = sb.String()
+
+	go func() {
+		for {
+			select {
+			case <-clientExt.stopCh:
+				return
+			case resp := <-outChTmp:
+				blockNumber, ok := big.NewInt(0).SetString(resp.BlockHeight, 0)
+				if !ok {
+					panic(resp)
+				}
+				arr, err := decodeReturnedDataOfGetReservesForBenchmark(pairs, resp.Response, blockNumber.Int64())
+				if err == nil {
+					for _, pairReserve := range arr {
+						outCh <- pairReserve
+					}
+				}
+			}
+		}
+	}()
+
+	_, err := clientExt.client.SubscribeEthOnBlock(nil, []map[string]string{callParam}, outChTmp)
+	return err
+}
+
 // Monitor tokens' balance of specified users.
 //
 // Multiple calls of this function will return the same channel.
@@ -202,6 +244,33 @@ func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, bloc
 			Reserve0:    big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32]),
 			Reserve1:    big.NewInt(0).SetBytes(bytes[(i+1)*32 : (i+2)*32]),
 			BlockNumber: blockNumber,
+		}
+	}
+	return result, nil
+}
+
+func decodeReturnedDataOfGetReservesForBenchmark(pairs []common.Address, hexStr string, blockNumber int64) ([]*types.PairReserves, error) {
+	if hexStr[:66] != "0x0000000000000000000000000000000000000000000000000000000000000020" {
+		panic("Bug: not possible")
+	}
+	bytes, err := hex.DecodeString(hexStr[2:])
+	if err != nil {
+		return nil, err
+	}
+	length := int(big.NewInt(0).SetBytes(bytes[32:64]).Int64())
+	if length != len(pairs) {
+		panic("Bug: not possible")
+	}
+	bytes = bytes[64:]
+
+	result := make([]*types.PairReserves, length)
+	for i := 0; i < length; i++ {
+		result[i] = &types.PairReserves{
+			Pair:               pairs[i],
+			Reserve0:           big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32]),
+			Reserve1:           big.NewInt(0).SetBytes(bytes[(i+1)*32 : (i+2)*32]),
+			BlockTimestampLast: uint32(big.NewInt(0).SetBytes(bytes[(i+2)*32 : (i+3)*32]).Int64()),
+			BlockNumber:        blockNumber,
 		}
 	}
 	return result, nil
