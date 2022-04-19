@@ -9,6 +9,7 @@ import (
 	"github.com/crypto-crawler/bloxroute-go/types"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/slices"
 )
 
 func TestNewTxs(t *testing.T) {
@@ -41,19 +42,14 @@ func TestNewTxsWithFilter(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
-
-	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
-	if authorizationHeader == "" {
-		assert.FailNow(t, "Please provide  the authorization header in the AUTHORIZATION_HEADER  environment variables")
-	}
-	// client, err := NewBloXrouteClientToGateway("ws://localhost:28334", authorizationHeader, stopCh)
-
 	assert.NoError(t, err)
 
 	txCh := make(chan *types.Transaction)
-	// monitor transactions sent to PancakeSwap router
-	filter := fmt.Sprintf("{to} == '%s'", "0x10ed43c718714eb63d5aa57b78b54704e256024e")
-	_, err = client.SubscribeNewTxs(nil, filter, txCh)
+	// SwapXXX() transactions on PancakeSwap
+	// filter := fmt.Sprintf("{to} == '%s'", "0x10ed43c718714eb63d5aa57b78b54704e256024e")
+	methodIds := []string{"0xfb3bdb41", "0x7ff36ab5", "0xb6f9de95", "0x18cbafe5", "0x791ac947", "0x38ed1739", "0x5c11d795", "0x4a25d94a", "0x8803dbee"}
+	filters := fmt.Sprintf("{to} == '%s' AND {method_id} IN ['0xfb3bdb41', '0x7ff36ab5', '0xb6f9de95', '0x18cbafe5', '0x791ac947', '0x38ed1739', '0x5c11d795', '0x4a25d94a', '0x8803dbee']", "0x10ed43c718714eb63d5aa57b78b54704e256024e")
+	_, err = client.SubscribeNewTxs(nil, filters, txCh)
 	assert.NoError(t, err)
 
 	go func() {
@@ -64,14 +60,13 @@ func TestNewTxsWithFilter(t *testing.T) {
 			case tx := <-txCh:
 				assert.NotEmpty(t, tx.TxHash)
 				assert.Equal(t, tx.TxContents.To, "0x10ed43c718714eb63d5aa57b78b54704e256024e")
+				method_id := tx.TxContents.Input[:10]
+				assert.True(t, slices.Contains(methodIds, method_id))
 			}
 		}
 	}()
 
-	tx := <-txCh
-	assert.NotEmpty(t, tx.TxHash)
-	assert.Equal(t, tx.TxContents.To, "0x10ed43c718714eb63d5aa57b78b54704e256024e")
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 15) // run for 15 seconds
 
 	close(stopCh)
 }
