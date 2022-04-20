@@ -304,14 +304,14 @@ func decodeFixedArray(hexStr string) ([]*big.Int, error) {
 	if len(hexStr)%64 != 0 {
 		return nil, fmt.Errorf("Length must be multiple of 64")
 	}
-	n := len(hexStr) / 64 // number of elements
+	bytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return nil, err
+	}
+	n := len(hexStr) / 32 // number of elements
 	result := make([]*big.Int, n)
 	for i := 0; i < n; i++ {
-		x, ok := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
-		if !ok {
-			return nil, fmt.Errorf("Invalid hex string %s", hexStr[i*64:(i+1)*64])
-		}
-		result[i] = x
+		result[i] = big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32])
 	}
 	return result, nil
 }
@@ -332,13 +332,5 @@ func decodeDynamicArray(hexStr string) ([]*big.Int, error) {
 	}
 	hexStr = hexStr[64:]
 
-	result := make([]*big.Int, length)
-	for i := 0; i < length; i++ {
-		x, ok := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
-		if !ok {
-			return nil, fmt.Errorf("Invalid hex string %s", hexStr[i*64:(i+1)*64])
-		}
-		result[i] = x
-	}
-	return result, nil
+	return decodeFixedArray(hexStr)
 }
