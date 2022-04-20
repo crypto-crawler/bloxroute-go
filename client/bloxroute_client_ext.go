@@ -227,25 +227,27 @@ func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, bloc
 	if hexStr[:66] != "0x0000000000000000000000000000000000000000000000000000000000000020" {
 		panic("Bug: not possible")
 	}
-	bytes, err := hex.DecodeString(hexStr[2:])
-	if err != nil {
-		return nil, err
+	n, ok := big.NewInt(0).SetString(hexStr[66:130], 16)
+	if !ok {
+		panic("Bug: not possible")
 	}
-	length := int(big.NewInt(0).SetBytes(bytes[32:64]).Int64())
+	length := int(n.Int64())
 	if length != len(pairs) {
 		panic("Bug: not possible")
 	}
-	if len(bytes) != 64+length*32*2 {
+	if len(hexStr) != 130+length*64*2 {
 		panic("Bug: not possible")
 	}
-	bytes = bytes[64:]
+	hexStr = hexStr[130:]
 
 	result := make([]*types.PairReserves, length)
 	for i := 0; i < length; i++ {
+		reserve0, _ := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
+		reserve1, _ := big.NewInt(0).SetString(hexStr[(i+1)*64:(i+2)*64], 16)
 		result[i] = &types.PairReserves{
 			Pair:        pairs[i],
-			Reserve0:    big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32]),
-			Reserve1:    big.NewInt(0).SetBytes(bytes[(i+1)*32 : (i+2)*32]),
+			Reserve0:    reserve0,
+			Reserve1:    reserve1,
 			BlockNumber: blockNumber,
 		}
 	}
@@ -256,26 +258,29 @@ func decodeReturnedDataOfGetReservesForBenchmark(pairs []common.Address, hexStr 
 	if hexStr[:66] != "0x0000000000000000000000000000000000000000000000000000000000000020" {
 		panic("Bug: not possible")
 	}
-	bytes, err := hex.DecodeString(hexStr[2:])
-	if err != nil {
-		return nil, err
+	n, ok := big.NewInt(0).SetString(hexStr[66:130], 16)
+	if !ok {
+		panic("Bug: not possible")
 	}
-	length := int(big.NewInt(0).SetBytes(bytes[32:64]).Int64())
+	length := int(n.Int64())
 	if length != len(pairs) {
 		panic("Bug: not possible")
 	}
-	if len(bytes) != 64+length*32*3 {
+	if len(hexStr) != 130+length*64*3 {
 		panic("Bug: not possible")
 	}
-	bytes = bytes[64:]
+	hexStr = hexStr[130:]
 
 	result := make([]*types.PairReserves, length)
 	for i := 0; i < length; i++ {
+		reserve0, _ := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
+		reserve1, _ := big.NewInt(0).SetString(hexStr[(i+1)*64:(i+2)*64], 16)
+		blockTimestampLast, _ := big.NewInt(0).SetString(hexStr[(i+2)*64:(i+3)*64], 16)
 		result[i] = &types.PairReserves{
 			Pair:               pairs[i],
-			Reserve0:           big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32]),
-			Reserve1:           big.NewInt(0).SetBytes(bytes[(i+1)*32 : (i+2)*32]),
-			BlockTimestampLast: uint32(big.NewInt(0).SetBytes(bytes[(i+2)*32 : (i+3)*32]).Int64()),
+			Reserve0:           reserve0,
+			Reserve1:           reserve1,
+			BlockTimestampLast: uint32(blockTimestampLast.Int64()),
 			BlockNumber:        blockNumber,
 		}
 	}
