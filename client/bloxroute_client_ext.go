@@ -235,6 +235,9 @@ func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, bloc
 	if length != len(pairs) {
 		panic("Bug: not possible")
 	}
+	if len(bytes) != 64+length*32*2 {
+		panic("Bug: not possible")
+	}
 	bytes = bytes[64:]
 
 	result := make([]*types.PairReserves, length)
@@ -259,6 +262,9 @@ func decodeReturnedDataOfGetReservesForBenchmark(pairs []common.Address, hexStr 
 	}
 	length := int(big.NewInt(0).SetBytes(bytes[32:64]).Int64())
 	if length != len(pairs) {
+		panic("Bug: not possible")
+	}
+	if len(bytes) != 64+length*32*3 {
 		panic("Bug: not possible")
 	}
 	bytes = bytes[64:]
