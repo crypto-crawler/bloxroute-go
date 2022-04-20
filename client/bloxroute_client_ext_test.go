@@ -141,3 +141,19 @@ func TestSubscribeBalance(t *testing.T) {
 
 	close(stopCh)
 }
+
+func TestDecodeFixedArray(t *testing.T) {
+	hexStr := "0000000000000000000000000000000000000000000063b1c073d196bec87b70000000000000000000000000000000000000000000a35dcd58131666ba651e10"
+	arr, err := decodeFixedArray(hexStr)
+	assert.NoError(t, err)
+	assert.Equal(t, "63b1c073d196bec87b70", arr[0].Text(16))
+	assert.Equal(t, "a35dcd58131666ba651e10", arr[1].Text(16))
+}
+
+func TestDecodeDynamicArray(t *testing.T) {
+	hexStr := "00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000063b1c073d196bec87b70000000000000000000000000000000000000000000a35dcd58131666ba651e10"
+	arr, err := decodeDynamicArray(hexStr)
+	assert.NoError(t, err)
+	assert.Equal(t, "63b1c073d196bec87b70", arr[0].Text(16))
+	assert.Equal(t, "a35dcd58131666ba651e10", arr[1].Text(16))
+}

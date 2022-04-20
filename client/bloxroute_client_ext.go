@@ -242,12 +242,14 @@ func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, bloc
 
 	result := make([]*types.PairReserves, length)
 	for i := 0; i < length; i++ {
-		reserve0, _ := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
-		reserve1, _ := big.NewInt(0).SetString(hexStr[(i+1)*64:(i+2)*64], 16)
+		arr, err := decodeFixedArray(hexStr[i*64 : (i+2)*64])
+		if err != nil {
+			return nil, err
+		}
 		result[i] = &types.PairReserves{
 			Pair:        pairs[i],
-			Reserve0:    reserve0,
-			Reserve1:    reserve1,
+			Reserve0:    arr[0],
+			Reserve1:    arr[1],
 			BlockNumber: blockNumber,
 		}
 	}
@@ -273,14 +275,15 @@ func decodeReturnedDataOfGetReservesForBenchmark(pairs []common.Address, hexStr 
 
 	result := make([]*types.PairReserves, length)
 	for i := 0; i < length; i++ {
-		reserve0, _ := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
-		reserve1, _ := big.NewInt(0).SetString(hexStr[(i+1)*64:(i+2)*64], 16)
-		blockTimestampLast, _ := big.NewInt(0).SetString(hexStr[(i+2)*64:(i+3)*64], 16)
+		arr, err := decodeFixedArray(hexStr[i*64 : (i+3)*64])
+		if err != nil {
+			return nil, err
+		}
 		result[i] = &types.PairReserves{
 			Pair:               pairs[i],
-			Reserve0:           reserve0,
-			Reserve1:           reserve1,
-			BlockTimestampLast: uint32(blockTimestampLast.Int64()),
+			Reserve0:           arr[0],
+			Reserve1:           arr[1],
+			BlockTimestampLast: uint32(arr[2].Int64()),
 			BlockNumber:        blockNumber,
 		}
 	}
@@ -295,4 +298,47 @@ func buildBalanceInputData(owner common.Address) string {
 	dataOut = append(dataOut, funcSelector...)
 	dataOut = append(dataOut, addressBytes...)
 	return fmt.Sprintf("0x%x", dataOut)
+}
+
+func decodeFixedArray(hexStr string) ([]*big.Int, error) {
+	if len(hexStr)%64 != 0 {
+		return nil, fmt.Errorf("Length must be multiple of 64")
+	}
+	n := len(hexStr) / 64 // number of elements
+	result := make([]*big.Int, n)
+	for i := 0; i < n; i++ {
+		x, ok := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
+		if !ok {
+			return nil, fmt.Errorf("Invalid hex string %s", hexStr[i*64:(i+1)*64])
+		}
+		result[i] = x
+	}
+	return result, nil
+}
+
+// Length followed by elements
+func decodeDynamicArray(hexStr string) ([]*big.Int, error) {
+	if len(hexStr)%64 != 0 {
+		return nil, fmt.Errorf("Length must be multiple of 64")
+	}
+	n, ok := big.NewInt(0).SetString(hexStr[:64], 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex string %s", hexStr[:64])
+	}
+	length := int(n.Int64())
+
+	if len(hexStr) != 64+length*64 {
+		return nil, fmt.Errorf("invalid hex string %s", hexStr)
+	}
+	hexStr = hexStr[64:]
+
+	result := make([]*big.Int, length)
+	for i := 0; i < length; i++ {
+		x, ok := big.NewInt(0).SetString(hexStr[i*64:(i+1)*64], 16)
+		if !ok {
+			return nil, fmt.Errorf("Invalid hex string %s", hexStr[i*64:(i+1)*64])
+		}
+		result[i] = x
+	}
+	return result, nil
 }
