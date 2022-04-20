@@ -224,32 +224,20 @@ func decodeReturnedDataOfGetReservesDeprecated(pair common.Address, hexStr strin
 }
 
 func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, blockNumber int64) ([]*types.PairReserves, error) {
-	if hexStr[:66] != "0x0000000000000000000000000000000000000000000000000000000000000020" {
+	arr, err := decodeTwoDimensionArray(hexStr, 2)
+	if err != nil {
+		return nil, err
+	}
+	if len(arr) != len(pairs) {
 		panic("Bug: not possible")
 	}
-	n, ok := big.NewInt(0).SetString(hexStr[66:130], 16)
-	if !ok {
-		panic("Bug: not possible")
-	}
-	length := int(n.Int64())
-	if length != len(pairs) {
-		panic("Bug: not possible")
-	}
-	if len(hexStr) != 130+length*64*2 {
-		panic("Bug: not possible")
-	}
-	hexStr = hexStr[130:]
 
-	result := make([]*types.PairReserves, length)
-	for i := 0; i < length; i++ {
-		arr, err := decodeFixedArray(hexStr[i*64 : (i+2)*64])
-		if err != nil {
-			return nil, err
-		}
+	result := make([]*types.PairReserves, len(pairs))
+	for i := 0; i < len(pairs); i++ {
 		result[i] = &types.PairReserves{
 			Pair:        pairs[i],
-			Reserve0:    arr[0],
-			Reserve1:    arr[1],
+			Reserve0:    arr[i][0],
+			Reserve1:    arr[i][1],
 			BlockNumber: blockNumber,
 		}
 	}
@@ -257,33 +245,21 @@ func decodeReturnedDataOfGetReserves(pairs []common.Address, hexStr string, bloc
 }
 
 func decodeReturnedDataOfGetReservesForBenchmark(pairs []common.Address, hexStr string, blockNumber int64) ([]*types.PairReserves, error) {
-	if hexStr[:66] != "0x0000000000000000000000000000000000000000000000000000000000000020" {
+	arr, err := decodeTwoDimensionArray(hexStr, 3)
+	if err != nil {
+		return nil, err
+	}
+	if len(arr) != len(pairs) {
 		panic("Bug: not possible")
 	}
-	n, ok := big.NewInt(0).SetString(hexStr[66:130], 16)
-	if !ok {
-		panic("Bug: not possible")
-	}
-	length := int(n.Int64())
-	if length != len(pairs) {
-		panic("Bug: not possible")
-	}
-	if len(hexStr) != 130+length*64*3 {
-		panic("Bug: not possible")
-	}
-	hexStr = hexStr[130:]
 
-	result := make([]*types.PairReserves, length)
-	for i := 0; i < length; i++ {
-		arr, err := decodeFixedArray(hexStr[i*64 : (i+3)*64])
-		if err != nil {
-			return nil, err
-		}
+	result := make([]*types.PairReserves, len(pairs))
+	for i := 0; i < len(pairs); i++ {
 		result[i] = &types.PairReserves{
 			Pair:               pairs[i],
-			Reserve0:           arr[0],
-			Reserve1:           arr[1],
-			BlockTimestampLast: uint32(arr[2].Int64()),
+			Reserve0:           arr[i][0],
+			Reserve1:           arr[i][1],
+			BlockTimestampLast: uint32(arr[i][2].Int64()),
 			BlockNumber:        blockNumber,
 		}
 	}
@@ -308,7 +284,7 @@ func decodeFixedArray(hexStr string) ([]*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	n := len(hexStr) / 32 // number of elements
+	n := len(bytes) / 32 // number of elements
 	result := make([]*big.Int, n)
 	for i := 0; i < n; i++ {
 		result[i] = big.NewInt(0).SetBytes(bytes[i*32 : (i+1)*32])
@@ -333,4 +309,40 @@ func decodeDynamicArray(hexStr string) ([]*big.Int, error) {
 	hexStr = hexStr[64:]
 
 	return decodeFixedArray(hexStr)
+}
+
+// The first dimension is a fixed length array
+// ndim, the fist dimension
+func decodeTwoDimensionArray(hexStr string, ndim int) ([][]*big.Int, error) {
+	if hexStr[:2] == "0x" {
+		hexStr = hexStr[2:]
+	}
+	if hexStr[:64] != "0000000000000000000000000000000000000000000000000000000000000020" {
+		return nil, fmt.Errorf("invalid hex string %s", hexStr)
+	}
+	if len(hexStr)%64 != 0 {
+		return nil, fmt.Errorf("Length must be multiple of 64")
+	}
+	n, ok := big.NewInt(0).SetString(hexStr[64:128], 16)
+	if !ok {
+		panic("Bug: not possible")
+	}
+	length := int(n.Int64())
+
+	if len(hexStr) != 128+length*64*ndim {
+		return nil, fmt.Errorf("invalid hex string %s", hexStr)
+	}
+	hexStr = hexStr[128:]
+
+	result := make([][]*big.Int, length)
+	for i := 0; i < length; i++ {
+		rowStr := hexStr[i*64*ndim : (i+1)*64*ndim]
+		arr, err := decodeFixedArray(rowStr)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = arr
+	}
+
+	return result, nil
 }
