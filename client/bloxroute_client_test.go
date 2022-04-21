@@ -116,23 +116,19 @@ func TestTxReceipts(t *testing.T) {
 }
 
 func TestBlockNumberFromEthOnBlock(t *testing.T) {
-	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
-	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
-	if certFile == "" || keyFile == "" {
-		assert.FailNow(t, "Please provide the bloXroute cert and key files path in the environment variable variable")
-	}
-
 	stopCh := make(chan struct{})
-	// client, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
-
-	// stopCh := make(chan struct{})
 	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
 	if authorizationHeader == "" {
 		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
 	}
-	client, err := NewBloXrouteClientToGateway("ws://localhost:28334", authorizationHeader, stopCh)
-
+	gatewayUrl := os.Getenv("GATEWAY_URL")
+	if gatewayUrl == "" {
+		assert.FailNow(t, "Please provide the gateway URL in the GATEWAY_URL environment variables")
+	}
+	client, err := NewBloXrouteClientToGateway(gatewayUrl, authorizationHeader, stopCh)
 	assert.NoError(t, err)
+	assert.NotNil(t, client)
+
 	respCh := make(chan *types.EthOnBlockResponse)
 	callParams := make([]map[string]string, 0)
 	callParams = append(callParams, map[string]string{"name": "blockNumber", "method": "eth_blockNumber"})
