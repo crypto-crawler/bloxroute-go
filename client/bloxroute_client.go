@@ -205,8 +205,7 @@ func (c *BloXrouteClient) SubscribeBdnBlocks(include []string, outCh chan<- *typ
 }
 
 // Subscribe to the `ethOnBlock` stream.
-// See https://docs.bloxroute.com/streams/onblock-event-stream
-// This stream is only available on local gateways.
+// This is a Gateway-API only stream, see https://docs.bloxroute.com/streams/onblock-event-stream.
 func (c *BloXrouteClient) SubscribeEthOnBlock(include []string, callParams []map[string]string, outCh chan<- *types.EthOnBlockResponse) (string, error) {
 	c.ethOnBlockCh = outCh
 

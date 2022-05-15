@@ -110,16 +110,19 @@ func TestSubscribePairReservesForBenchmark(t *testing.T) {
 }
 
 func TestSubscribeBalance(t *testing.T) {
-	certFile := os.Getenv("BLOXROUTE_CERT_FILE")
-	keyFile := os.Getenv("BLOXROUTE_KEY_FILE")
-	if certFile == "" || keyFile == "" {
-		assert.FailNow(t, "Please provide the bloXroute cert and key files path in the environment variable variable")
-	}
-
 	stopCh := make(chan struct{})
-	bloXrouteClient, err := NewBloXrouteClientToCloud("BSC-Mainnet", certFile, keyFile, stopCh)
+	authorizationHeader := os.Getenv("AUTHORIZATION_HEADER")
+	if authorizationHeader == "" {
+		assert.FailNow(t, "Please provide the authorization header in the AUTHORIZATION_HEADER environment variables")
+	}
+	gatewayUrl := os.Getenv("GATEWAY_URL")
+	if gatewayUrl == "" {
+		assert.FailNow(t, "Please provide the gateway URL in the GATEWAY_URL environment variables")
+	}
+	client, err := NewBloXrouteClientToGateway(gatewayUrl, authorizationHeader, stopCh)
 	assert.NoError(t, err)
-	clientExt := NewBloXrouteClientExtended(bloXrouteClient, stopCh)
+	assert.NotNil(t, client)
+	clientExt := NewBloXrouteClientExtended(client, stopCh)
 
 	owners := []common.Address{common.HexToAddress("0x95eA23508ecc3521081E72352C13707F6b179Fc1")}
 	tokens := []common.Address{
