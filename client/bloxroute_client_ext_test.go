@@ -135,7 +135,7 @@ func TestSubscribeBalance(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		balance := <-balanceCh
 		if balance.Token == ZeroAddress {
-			assert.Equal(t, balance.Balance.String(), "2618353928878013888")
+			assert.Equal(t, balance.Balance.String(), "2617662203878013888")
 		}
 	}
 
